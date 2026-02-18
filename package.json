@@ -1,0 +1,11 @@
+{
+  "name": "gpx-training-analyzer",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "backend:dev": "cd backend && go run ./cmd/server"
+  }
+}
