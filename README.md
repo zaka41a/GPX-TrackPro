@@ -160,8 +160,8 @@ advanced sport metrics, role-based user management, and offline-ready PWA mode.
                                      |
                          +-----------+-----------+
                          |        Nginx          |
-                         |    Reverse Proxy       |
-                         |  Static files + /api   |
+                         |    Reverse Proxy      |
+                         |  Static files + /api  |
                          +-----------+-----------+
                                      |
                                  /api/*
@@ -174,16 +174,16 @@ advanced sport metrics, role-based user management, and offline-ready PWA mode.
    |  +---------------+  |                       |                     |
    |  | api/handlers  |  |                       |  - Cache API calls  |
    |  +-------+-------+  |                       |  - Cache OSM tiles  |
-   |          |           |                       |  - Offline support  |
+   |          |          |                      |  - Offline support |
    |  +-------+-------+  |                       +---------------------+
    |  | auth (JWT)    |  |
    |  +-------+-------+  |
-   |          |           |
+   |          |          |
    |  +-------+-------+  |
    |  | gpx/parser    |  |
    |  | metrics/calc  |  |
    |  +-------+-------+  |
-   |          |           |
+   |          |          |
    |  +-------+-------+  |
    |  | store (pgx)   |  |
    |  +-------+-------+  |
