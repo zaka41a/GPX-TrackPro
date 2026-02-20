@@ -64,3 +64,20 @@ export interface ContactFormData {
   subject: string;
   message: string;
 }
+
+export interface AthleteProfile {
+  bio: string;
+  phone: string;
+  dateOfBirth: string;
+  gender: string;
+  country: string;
+  city: string;
+  height: number | null;
+  weight: number | null;
+  primarySport: SportType;
+  secondarySports: SportType[];
+  experienceLevel: "beginner" | "intermediate" | "advanced" | "elite";
+  weeklyGoalHours: number | null;
+  avatarUrl: string;
+  sportPhotoUrl: string;
+}

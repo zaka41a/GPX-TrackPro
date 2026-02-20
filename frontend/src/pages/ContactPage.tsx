@@ -40,6 +40,8 @@ const subjects = [
   "Other",
 ];
 
+const inputClass = "mt-1.5 h-11 bg-muted border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:ring-2 focus:ring-accent/20";
+
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export default function ContactPage() {
   return (
     <PageTransition>
       <PublicLayout>
-        {/* Hero */}
+        {/* Hero - Dark */}
         <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-20 left-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
@@ -87,21 +89,21 @@ export default function ContactPage() {
         </section>
 
         {/* Contact Cards */}
-        <section className="bg-white border-b border-slate-200/60">
+        <section className="bg-card border-b border-border">
           <div className="container py-12">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl mx-auto">
               {contactCards.map((card, i) => (
                 <motion.div
                   key={card.title}
                   {...fadeUp(i * 0.1)}
-                  className="p-6 rounded-xl bg-slate-50 border border-slate-200/60 hover:border-accent/30 hover:shadow-lg transition-all duration-300 text-center"
+                  className="p-6 rounded-xl bg-muted border border-border hover:border-accent/30 hover:shadow-lg transition-all duration-300 text-center"
                 >
                   <div className="stat-icon-bg bg-accent/10 mx-auto mb-4">
                     <card.icon className="h-5 w-5 text-accent" />
                   </div>
-                  <h3 className="font-semibold text-slate-900 mb-1">{card.title}</h3>
+                  <h3 className="font-semibold text-foreground mb-1">{card.title}</h3>
                   <p className="text-sm text-accent font-medium mb-1">{card.desc}</p>
-                  <p className="text-xs text-slate-400">{card.sub}</p>
+                  <p className="text-xs text-muted-foreground">{card.sub}</p>
                 </motion.div>
               ))}
             </div>
@@ -109,84 +111,96 @@ export default function ContactPage() {
         </section>
 
         {/* Form + Info */}
-        <section className="bg-[hsl(216,30%,98.5%)]">
+        <section className="bg-background">
           <div className="container py-20 md:py-28">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-5xl mx-auto">
               {/* Left - Form */}
               <motion.div {...fadeUp()}>
                 <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Send a Message</p>
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">We'd Love to Hear From You</h2>
-                <p className="text-slate-500 mb-8">Fill out the form below and we'll get back to you as soon as possible.</p>
+                <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">We'd Love to Hear From You</h2>
+                <p className="text-muted-foreground mb-8">Fill out the form below and we'll get back to you as soon as possible.</p>
 
                 {submitted ? (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="p-10 rounded-2xl bg-white border border-slate-200/60 text-center"
+                    className="p-10 rounded-2xl bg-card border border-border text-center"
                   >
-                    <div className="h-14 w-14 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-5">
-                      <CheckCircle className="h-7 w-7 text-emerald-600" />
+                    <div className="h-14 w-14 rounded-2xl bg-success/10 flex items-center justify-center mx-auto mb-5">
+                      <CheckCircle className="h-7 w-7 text-success" />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Message Sent!</h3>
-                    <p className="text-sm text-slate-500 mb-6">Thank you for reaching out. We'll get back to you within 24-48 hours.</p>
+                    <h3 className="text-xl font-bold text-foreground mb-2">Message Sent!</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Thank you for reaching out. We'll get back to you within 24-48 hours.</p>
                     <Button
                       variant="outline"
-                      className="border-slate-200 text-slate-600 hover:bg-slate-50"
+                      className="border-border text-foreground hover:bg-muted"
                       onClick={() => setSubmitted(false)}
                     >
                       Send Another Message
                     </Button>
                   </motion.div>
                 ) : (
-                  <form onSubmit={handleSubmit} className="p-6 md:p-8 rounded-2xl bg-white border border-slate-200/60 space-y-5">
+                  <form onSubmit={handleSubmit} className="p-6 md:p-8 rounded-2xl bg-card border border-border space-y-5">
                     {error && (
-                      <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                         <AlertCircle className="h-4 w-4 shrink-0" /> {error}
                       </div>
                     )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="name" className="text-slate-700 text-sm font-medium">Name</Label>
+                        <Label htmlFor="name" className="text-foreground text-sm font-medium">
+                          Name <span className="text-destructive">*</span>
+                        </Label>
                         <Input
                           id="name"
                           name="name"
                           placeholder="Your name"
-                          className="mt-1.5 h-11 bg-slate-50 border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:border-accent focus:ring-accent"
+                          required
+                          className={inputClass}
                         />
                       </div>
                       <div>
-                        <Label htmlFor="email" className="text-slate-700 text-sm font-medium">Email</Label>
+                        <Label htmlFor="email" className="text-foreground text-sm font-medium">
+                          Email <span className="text-destructive">*</span>
+                        </Label>
                         <Input
                           id="email"
                           name="email"
                           type="email"
                           placeholder="you@example.com"
-                          className="mt-1.5 h-11 bg-slate-50 border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:border-accent focus:ring-accent"
+                          required
+                          className={inputClass}
                         />
                       </div>
                     </div>
                     <div>
-                      <Label htmlFor="subject" className="text-slate-700 text-sm font-medium">Subject</Label>
+                      <Label htmlFor="subject" className="text-foreground text-sm font-medium">
+                        Subject <span className="text-destructive">*</span>
+                      </Label>
                       <select
                         id="subject"
                         name="subject"
-                        className="mt-1.5 flex h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                        required
+                        className="mt-1.5 flex h-11 w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                         defaultValue=""
                       >
-                        <option value="" disabled className="text-slate-400">Select a subject</option>
+                        <option value="" disabled className="text-muted-foreground">Select a subject</option>
                         {subjects.map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <Label htmlFor="message" className="text-slate-700 text-sm font-medium">Message</Label>
+                      <Label htmlFor="message" className="text-foreground text-sm font-medium">
+                        Message <span className="text-destructive">*</span>
+                      </Label>
                       <Textarea
                         id="message"
                         name="message"
                         placeholder="Tell us how we can help..."
                         rows={5}
-                        className="mt-1.5 bg-slate-50 border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:border-accent focus:ring-accent"
+                        required
+                        className="mt-1.5 bg-muted border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:ring-2 focus:ring-accent/20"
                       />
                     </div>
                     <Button type="submit" disabled={loading} className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90">
@@ -200,8 +214,8 @@ export default function ContactPage() {
               <motion.div {...fadeUp(0.2)} className="flex flex-col gap-6">
                 <div>
                   <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Why Contact Us</p>
-                  <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">We're Here to Help</h2>
-                  <p className="text-slate-500 leading-relaxed">
+                  <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">We're Here to Help</h2>
+                  <p className="text-muted-foreground leading-relaxed">
                     Whether you have a question about features, need technical help, or want to share feedback, our team is ready to assist.
                   </p>
                 </div>
@@ -216,14 +230,14 @@ export default function ContactPage() {
                     <motion.div
                       key={item.title}
                       {...fadeUp(0.3 + i * 0.1)}
-                      className="flex gap-4 p-5 rounded-xl bg-white border border-slate-200/60 hover:border-accent/30 hover:shadow-md transition-all duration-300"
+                      className="flex gap-4 p-5 rounded-xl bg-card border border-border hover:border-accent/30 hover:shadow-md transition-all duration-300"
                     >
                       <div className="stat-icon-bg bg-accent/10 shrink-0">
                         <item.icon className="h-5 w-5 text-accent" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-slate-900 text-sm mb-0.5">{item.title}</h3>
-                        <p className="text-xs text-slate-500">{item.desc}</p>
+                        <h3 className="font-semibold text-foreground text-sm mb-0.5">{item.title}</h3>
+                        <p className="text-xs text-muted-foreground">{item.desc}</p>
                       </div>
                     </motion.div>
                   ))}
@@ -248,22 +262,22 @@ export default function ContactPage() {
         </section>
 
         {/* FAQ */}
-        <section className="bg-white">
+        <section className="bg-card">
           <div className="container py-20 md:py-28">
             <motion.div {...fadeUp()} className="text-center mb-14">
               <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">FAQ</p>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">Frequently Asked Questions</h2>
-              <p className="text-slate-500 max-w-lg mx-auto">Quick answers to common questions before you reach out.</p>
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">Frequently Asked Questions</h2>
+              <p className="text-muted-foreground max-w-lg mx-auto">Quick answers to common questions before you reach out.</p>
             </motion.div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl mx-auto">
               {faqItems.map((item, i) => (
                 <motion.div
                   key={i}
                   {...fadeUp(i * 0.08)}
-                  className="p-6 rounded-xl bg-slate-50 border border-slate-200/60 hover:border-accent/30 hover:shadow-md transition-all duration-300"
+                  className="p-6 rounded-xl bg-muted border border-border hover:border-accent/30 hover:shadow-md transition-all duration-300"
                 >
-                  <h3 className="font-semibold text-slate-900 mb-2 text-sm">{item.q}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed">{item.a}</p>
+                  <h3 className="font-semibold text-foreground mb-2 text-sm">{item.q}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{item.a}</p>
                 </motion.div>
               ))}
             </div>

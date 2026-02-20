@@ -16,6 +16,7 @@ import UploadPage from "./pages/UploadPage";
 import ActivitiesArchivePage from "./pages/ActivitiesArchivePage";
 import ActivityStatsPage from "./pages/ActivityStatsPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
             <Route path="/activities" element={<ProtectedRoute><ActivitiesArchivePage /></ProtectedRoute>} />
             <Route path="/activity/:id" element={<ProtectedRoute><ActivityStatsPage /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
             {/* Admin */}
             <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />

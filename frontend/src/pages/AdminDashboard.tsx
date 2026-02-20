@@ -66,7 +66,7 @@ export default function AdminDashboard() {
     <AppShell>
       <PageTransition>
         <div className="space-y-8">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
 
           {/* KPIs */}
           {loading ? (
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
 
           {/* User table */}
           <section>
-            <h2 className="text-lg font-semibold mb-4">User Management</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">User Management</h2>
             <div className="glass-surface rounded-xl p-4 flex flex-wrap items-center gap-3 mb-4">
               <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-64 h-9 bg-muted/50 text-sm" />
               <div className="flex gap-1.5">
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
                     key={f.value}
                     onClick={() => setStatusFilter(f.value)}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                      "px-3.5 py-2 rounded-lg text-xs font-medium transition-all",
                       statusFilter === f.value ? "bg-accent/10 text-accent border border-accent/30" : "text-muted-foreground hover:text-foreground border border-transparent"
                     )}
                   >
@@ -102,62 +102,95 @@ export default function AdminDashboard() {
             </div>
 
             {loading ? <SkeletonTable /> : (
-              <div className="glass-surface rounded-xl overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Joined</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((u) => (
-                      <TableRow key={u.id} className="hover:bg-accent/5 transition-colors">
-                        <TableCell className="font-medium">{u.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                        <TableCell>{statusBadge(u.status)}</TableCell>
-                        <TableCell className="text-muted-foreground">{u.createdAt}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {u.status !== "approved" && (
-                              <Button size="sm" variant="ghost" className="text-success hover:text-success hover:bg-success/10 h-8 text-xs" onClick={() => setConfirmAction({ type: "approve", user: u })}>
-                                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
-                              </Button>
-                            )}
-                            {u.status !== "rejected" && (
-                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 text-xs" onClick={() => setConfirmAction({ type: "reject", user: u })}>
-                                <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+              <>
+                {/* Desktop table */}
+                <div className="glass-surface rounded-xl overflow-hidden hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Joined</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((u) => (
+                        <TableRow key={u.id} className="hover:bg-accent/5 transition-colors">
+                          <TableCell className="font-medium text-foreground">{u.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                          <TableCell>{statusBadge(u.status)}</TableCell>
+                          <TableCell className="text-muted-foreground">{u.createdAt}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {u.status !== "approved" && (
+                                <Button size="sm" variant="ghost" className="text-success hover:text-success hover:bg-success/10 h-8 text-xs" onClick={() => setConfirmAction({ type: "approve", user: u })}>
+                                  <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                                </Button>
+                              )}
+                              {u.status !== "rejected" && (
+                                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 text-xs" onClick={() => setConfirmAction({ type: "reject", user: u })}>
+                                  <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="md:hidden space-y-3">
+                  {filtered.map((u) => (
+                    <div key={u.id} className="glass-card rounded-xl p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm text-foreground truncate">{u.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        </div>
+                        {statusBadge(u.status)}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">{u.createdAt}</p>
+                        <div className="flex gap-1">
+                          {u.status !== "approved" && (
+                            <Button size="sm" variant="ghost" className="text-success hover:bg-success/10 h-9 text-xs px-3" onClick={() => setConfirmAction({ type: "approve", user: u })}>
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                            </Button>
+                          )}
+                          {u.status !== "rejected" && (
+                            <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 h-9 text-xs px-3" onClick={() => setConfirmAction({ type: "reject", user: u })}>
+                              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </section>
 
           {/* Timeline */}
           <section>
-            <h2 className="text-lg font-semibold mb-4">Action Timeline</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Action Timeline</h2>
             {actions.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">No actions yet</p>
             ) : (
               <div className="space-y-2 relative">
                 <div className="absolute left-[17px] top-3 bottom-3 w-px bg-border/50" />
                 {actions.map((a) => (
-                  <div key={a.id} className="glass-card rounded-lg p-4 pl-10 relative">
+                  <div key={a.id} className="glass-card rounded-xl p-4 pl-10 relative">
                     <div className={cn(
                       "absolute left-3 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full",
                       a.action === "Approved" ? "bg-success" : "bg-destructive"
                     )} />
                     <div className="flex items-center justify-between">
-                      <p className="text-sm"><span className="font-medium">{a.action}</span> <span className="text-muted-foreground">{a.targetUser}</span></p>
+                      <p className="text-sm"><span className="font-medium text-foreground">{a.action}</span> <span className="text-muted-foreground">{a.targetUser}</span></p>
                       <p className="text-xs text-muted-foreground">{new Date(a.timestamp).toLocaleString()}</p>
                     </div>
                   </div>

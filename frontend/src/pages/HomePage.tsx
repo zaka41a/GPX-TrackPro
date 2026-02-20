@@ -56,30 +56,30 @@ function HeroTrackAnimation() {
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1440 560" preserveAspectRatio="xMidYMid slice" fill="none">
         {trackPaths.map((d, i) => (
           <g key={i}>
-            <path d={d} stroke={`hsl(187 82% 53% / ${0.08 + i * 0.02})`} strokeWidth={2 - i * 0.3} strokeLinecap="round" fill="none" />
-            <path d={d} stroke={`hsl(187 82% 53% / ${0.25 + i * 0.05})`} strokeWidth={2.5 - i * 0.3} strokeLinecap="round" strokeDasharray="60 1600" fill="none">
+            <path d={d} stroke={`hsl(var(--accent) / ${0.08 + i * 0.02})`} strokeWidth={2 - i * 0.3} strokeLinecap="round" fill="none" />
+            <path d={d} stroke={`hsl(var(--accent) / ${0.25 + i * 0.05})`} strokeWidth={2.5 - i * 0.3} strokeLinecap="round" strokeDasharray="60 1600" fill="none">
               <animate attributeName="stroke-dashoffset" values={`${1660};${-60}`} dur={`${8 + i * 3}s`} begin={`${i * 2}s`} repeatCount="indefinite" />
             </path>
-            <circle r={3.5 - i * 0.5} fill={`hsl(187 82% 53% / ${0.6 + i * 0.1})`}>
+            <circle r={3.5 - i * 0.5} fill={`hsl(var(--accent) / ${0.6 + i * 0.1})`}>
               <animateMotion dur={`${8 + i * 3}s`} begin={`${i * 2}s`} repeatCount="indefinite" path={d} />
             </circle>
-            <circle r={8 - i} fill={`hsl(187 82% 53% / ${0.12 + i * 0.02})`}>
+            <circle r={8 - i} fill={`hsl(var(--accent) / ${0.12 + i * 0.02})`}>
               <animateMotion dur={`${8 + i * 3}s`} begin={`${i * 2}s`} repeatCount="indefinite" path={d} />
             </circle>
           </g>
         ))}
         {[{ cx: 260, cy: 140 }, { cx: 680, cy: 100 }, { cx: 1120, cy: 100 }].map((pt, i) => (
           <g key={`wp-${i}`}>
-            <circle cx={pt.cx} cy={pt.cy} r="12" fill="hsl(187 82% 53% / 0.06)" stroke="hsl(187 82% 53% / 0.12)" strokeWidth="1">
+            <circle cx={pt.cx} cy={pt.cy} r="12" fill="hsl(var(--accent) / 0.06)" stroke="hsl(var(--accent) / 0.12)" strokeWidth="1">
               <animate attributeName="r" values="10;14;10" dur="4s" begin={`${i * 1.2}s`} repeatCount="indefinite" />
               <animate attributeName="opacity" values="0.8;0.3;0.8" dur="4s" begin={`${i * 1.2}s`} repeatCount="indefinite" />
             </circle>
-            <circle cx={pt.cx} cy={pt.cy} r="3" fill="hsl(187 82% 53% / 0.25)" />
+            <circle cx={pt.cx} cy={pt.cy} r="3" fill="hsl(var(--accent) / 0.25)" />
           </g>
         ))}
         {Array.from({ length: 12 }).map((_, i) =>
           Array.from({ length: 6 }).map((_, j) => (
-            <circle key={`g-${i}-${j}`} cx={120 * i + 60} cy={100 * j + 30} r="1" fill="hsl(187 82% 53% / 0.05)" />
+            <circle key={`g-${i}-${j}`} cx={120 * i + 60} cy={100 * j + 30} r="1" fill="hsl(var(--accent) / 0.05)" />
           ))
         )}
       </svg>
@@ -129,13 +129,13 @@ export default function HomePage() {
         </section>
 
         {/* Stats counter bar */}
-        <section className="bg-white border-b border-slate-200/60">
+        <section className="bg-card border-b border-border">
           <div className="container py-10">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
               {stats.map((s, i) => (
                 <motion.div key={s.label} {...fadeUp(i * 0.1)} className="text-center">
                   <p className="text-2xl md:text-3xl font-extrabold font-mono-data text-gradient-accent">{s.value}</p>
-                  <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider">{s.label}</p>
+                  <p className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">{s.label}</p>
                 </motion.div>
               ))}
             </div>
@@ -143,25 +143,25 @@ export default function HomePage() {
         </section>
 
         {/* Features */}
-        <section className="bg-white">
+        <section className="bg-card">
           <div className="container py-20 md:py-28">
             <motion.div {...fadeUp()} className="text-center mb-14">
               <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Features</p>
-              <h2 className="text-2xl md:text-3xl font-bold mb-3 text-slate-900">Everything You Need</h2>
-              <p className="text-slate-500 max-w-lg mx-auto">Powerful tools to analyze, visualize, and track your training data.</p>
+              <h2 className="text-2xl md:text-3xl font-bold mb-3 text-foreground">Everything You Need</h2>
+              <p className="text-muted-foreground max-w-lg mx-auto">Powerful tools to analyze, visualize, and track your training data.</p>
             </motion.div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {features.map((f, i) => (
                 <motion.div
                   key={f.title}
                   {...fadeUp(i * 0.08)}
-                  className="rounded-xl p-6 bg-slate-50 border border-slate-200/60 hover:border-accent/30 hover:shadow-lg transition-all duration-300"
+                  className="rounded-xl p-6 bg-muted border border-border hover:border-accent/30 hover:shadow-lg transition-all duration-300"
                 >
                   <div className="stat-icon-bg bg-accent/10 mb-4">
                     <f.icon className="h-5 w-5 text-accent" />
                   </div>
-                  <h3 className="font-semibold text-lg mb-2 text-slate-900">{f.title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed">{f.desc}</p>
+                  <h3 className="font-semibold text-lg mb-2 text-foreground">{f.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
                 </motion.div>
               ))}
             </div>
@@ -169,12 +169,12 @@ export default function HomePage() {
         </section>
 
         {/* How it works */}
-        <section className="bg-[hsl(216,30%,98.5%)]">
+        <section className="bg-background">
           <div className="container py-20 md:py-28">
             <motion.div {...fadeUp()} className="text-center mb-14">
               <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Process</p>
-              <h2 className="text-2xl md:text-3xl font-bold mb-3 text-slate-900">How It Works</h2>
-              <p className="text-slate-500">Three simple steps to get started.</p>
+              <h2 className="text-2xl md:text-3xl font-bold mb-3 text-foreground">How It Works</h2>
+              <p className="text-muted-foreground">Three simple steps to get started.</p>
             </motion.div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto relative">
               <div className="hidden md:block absolute top-8 left-[20%] right-[20%] h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent" />
@@ -183,8 +183,8 @@ export default function HomePage() {
                   <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-accent/10 border border-accent/20 mb-4">
                     <span className="text-xl font-extrabold text-accent font-mono-data">{s.step}</span>
                   </div>
-                  <h3 className="font-semibold text-lg mb-2 text-slate-900">{s.title}</h3>
-                  <p className="text-sm text-slate-500">{s.desc}</p>
+                  <h3 className="font-semibold text-lg mb-2 text-foreground">{s.title}</h3>
+                  <p className="text-sm text-muted-foreground">{s.desc}</p>
                 </motion.div>
               ))}
             </div>
@@ -192,13 +192,13 @@ export default function HomePage() {
         </section>
 
         {/* Trust / Highlights */}
-        <section className="bg-white">
+        <section className="bg-card">
           <div className="container py-20 md:py-28">
             <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <motion.div {...fadeUp()}>
                 <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Why GPX TrackPro</p>
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">Built for Serious Athletes</h2>
-                <p className="text-slate-500 leading-relaxed mb-6">
+                <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Built for Serious Athletes</h2>
+                <p className="text-muted-foreground leading-relaxed mb-6">
                   Whether you're a cyclist, runner, or hiker — GPX TrackPro gives you the precision analytics and privacy-first approach you deserve.
                 </p>
                 <div className="space-y-3">
@@ -207,7 +207,7 @@ export default function HomePage() {
                       <div className="h-6 w-6 rounded-md bg-accent/10 flex items-center justify-center shrink-0">
                         <CheckCircle2 className="h-3.5 w-3.5 text-accent" />
                       </div>
-                      <span className="text-sm text-slate-700 font-medium">{item}</span>
+                      <span className="text-sm text-foreground font-medium">{item}</span>
                     </motion.div>
                   ))}
                 </div>

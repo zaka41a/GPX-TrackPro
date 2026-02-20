@@ -24,16 +24,16 @@ function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
 
   const labels = ["Weak", "Fair", "Good", "Strong"];
-  const colors = ["bg-red-500", "bg-amber-500", "bg-accent", "bg-emerald-500"];
+  const colors = ["bg-destructive", "bg-warning", "bg-accent", "bg-success"];
 
   return (
     <div className="mt-2 space-y-1.5">
       <div className="flex gap-1">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className={cn("h-1 flex-1 rounded-full transition-colors", i < strength ? colors[strength - 1] : "bg-slate-200")} />
+          <div key={i} className={cn("h-1 flex-1 rounded-full transition-colors", i < strength ? colors[strength - 1] : "bg-border")} />
         ))}
       </div>
-      <p className="text-[11px] text-slate-500">{labels[strength - 1] || "Too short"}</p>
+      <p className="text-xs text-muted-foreground">{labels[strength - 1] || "Too short"}</p>
     </div>
   );
 }
@@ -66,6 +66,8 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  const inputClass = "mt-1.5 h-11 bg-muted border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:ring-2 focus:ring-accent/20";
 
   return (
     <PageTransition>
@@ -107,20 +109,20 @@ export default function RegisterPage() {
           </div>
 
           {/* Form panel */}
-          <div className="flex-1 flex items-center justify-center p-6 bg-[hsl(216,30%,98.5%)]">
+          <div className="flex-1 flex items-center justify-center p-6 bg-background">
             <div className="w-full max-w-md">
               {registered ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="rounded-2xl bg-white border border-slate-200/60 p-10 text-center shadow-sm"
+                  className="rounded-2xl bg-card border border-border p-10 text-center shadow-sm"
                 >
-                  <div className="h-14 w-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-5">
-                    <Clock className="h-7 w-7 text-amber-600" />
+                  <div className="h-14 w-14 rounded-2xl bg-warning/10 flex items-center justify-center mx-auto mb-5">
+                    <Clock className="h-7 w-7 text-warning" />
                   </div>
-                  <h2 className="text-xl font-bold mb-2 text-slate-900">Registration Submitted</h2>
-                  <p className="text-sm text-slate-500 mb-6">Your account is pending admin approval. You'll be able to sign in once approved.</p>
-                  <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50" asChild>
+                  <h2 className="text-xl font-bold mb-2 text-foreground">Registration Submitted</h2>
+                  <p className="text-sm text-muted-foreground mb-6">Your account is pending admin approval. You'll be able to sign in once approved.</p>
+                  <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted" asChild>
                     <Link to="/login">Go to Sign In <ArrowRight className="h-4 w-4 ml-2" /></Link>
                   </Button>
                 </motion.div>
@@ -129,55 +131,50 @@ export default function RegisterPage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
-                  className="rounded-2xl bg-white border border-slate-200/60 p-8 shadow-sm"
+                  className="rounded-2xl bg-card border border-border p-8 shadow-sm"
                 >
                   {/* Mobile logo */}
                   <div className="flex items-center justify-center mb-6 lg:hidden">
                     <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-12 w-12 rounded-xl object-cover" />
                   </div>
 
-                  <h1 className="text-2xl font-bold mb-1 text-slate-900">Create Account</h1>
-                  <p className="text-sm text-slate-500 mb-6">Join GPX TrackPro and start tracking your performance.</p>
+                  <h1 className="text-2xl font-bold mb-1 text-foreground">Create Account</h1>
+                  <p className="text-sm text-muted-foreground mb-6">Join GPX TrackPro and start tracking your performance.</p>
 
                   {error && (
-                    <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
                       <AlertCircle className="h-4 w-4 shrink-0" /> {error}
                     </div>
                   )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                      <Label htmlFor="name" className="text-slate-700 text-sm font-medium">Full Name</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        placeholder="John Doe"
-                        className="mt-1.5 h-11 bg-slate-50 border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:border-accent focus:ring-accent"
-                      />
+                      <Label htmlFor="name" className="text-foreground text-sm font-medium">Full Name <span className="text-destructive">*</span></Label>
+                      <Input id="name" name="name" required placeholder="John Doe" className={inputClass} />
                     </div>
                     <div>
-                      <Label htmlFor="email" className="text-slate-700 text-sm font-medium">Email</Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        placeholder="you@example.com"
-                        className="mt-1.5 h-11 bg-slate-50 border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:border-accent focus:ring-accent"
-                      />
+                      <Label htmlFor="email" className="text-foreground text-sm font-medium">Email <span className="text-destructive">*</span></Label>
+                      <Input id="email" name="email" type="email" required placeholder="you@example.com" className={inputClass} />
                     </div>
                     <div>
-                      <Label htmlFor="password" className="text-slate-700 text-sm font-medium">Password</Label>
+                      <Label htmlFor="password" className="text-foreground text-sm font-medium">Password <span className="text-destructive">*</span></Label>
                       <div className="relative mt-1.5">
                         <Input
                           id="password"
                           name="password"
                           type={showPw ? "text" : "password"}
+                          required
                           placeholder="••••••••"
-                          className="pr-10 h-11 bg-slate-50 border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:border-accent focus:ring-accent"
+                          className={`pr-10 ${inputClass}`}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                         />
-                        <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => setShowPw(!showPw)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          aria-label={showPw ? "Hide password" : "Show password"}
+                        >
                           {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
@@ -188,7 +185,7 @@ export default function RegisterPage() {
                     </Button>
                   </form>
 
-                  <p className="text-sm text-slate-500 mt-6 text-center">
+                  <p className="text-sm text-muted-foreground mt-6 text-center">
                     Already have an account?{" "}
                     <Link to="/login" className="text-accent font-medium hover:underline">Sign in</Link>
                   </p>

@@ -41,6 +41,9 @@ export default function LoginPage() {
     navigate(dest, { replace: true });
   }
 
+  const inputClass = "mt-1.5 h-11 bg-muted border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:ring-2 focus:ring-accent/20";
+  const inputErrorClass = error ? "border-destructive/50 focus:border-destructive focus:ring-destructive/20" : "";
+
   return (
     <PageTransition>
       <PublicLayout showFooter={false}>
@@ -81,23 +84,23 @@ export default function LoginPage() {
           </div>
 
           {/* Form panel */}
-          <div className="flex-1 flex items-center justify-center p-6 bg-[hsl(216,30%,98.5%)]">
+          <div className="flex-1 flex items-center justify-center p-6 bg-background">
             <div className="w-full max-w-md">
               {statusParam === "pending" && (
-                <div className="rounded-xl p-5 mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200">
-                  <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="rounded-xl p-5 mb-6 flex items-start gap-3 bg-warning/10 border border-warning/20">
+                  <Clock className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="font-semibold text-amber-800 text-sm">Account Pending Approval</h3>
-                    <p className="text-sm text-amber-700 mt-1">Your account is awaiting admin review. Please check back later.</p>
+                    <h3 className="font-semibold text-foreground text-sm">Account Pending Approval</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Your account is awaiting admin review. Please check back later.</p>
                   </div>
                 </div>
               )}
               {statusParam === "rejected" && (
-                <div className="rounded-xl p-5 mb-6 flex items-start gap-3 bg-red-50 border border-red-200">
-                  <XCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="rounded-xl p-5 mb-6 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
+                  <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="font-semibold text-red-800 text-sm">Account Rejected</h3>
-                    <p className="text-sm text-red-700 mt-1">Your account application has been rejected. Contact support for assistance.</p>
+                    <h3 className="font-semibold text-foreground text-sm">Account Rejected</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Your account application has been rejected. Contact support for assistance.</p>
                   </div>
                 </div>
               )}
@@ -106,44 +109,51 @@ export default function LoginPage() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="rounded-2xl bg-white border border-slate-200/60 p-8 shadow-sm"
+                className="rounded-2xl bg-card border border-border p-8 shadow-sm"
               >
                 {/* Mobile logo */}
                 <div className="flex items-center justify-center mb-6 lg:hidden">
                   <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-12 w-12 rounded-xl object-cover" />
                 </div>
 
-                <h1 className="text-2xl font-bold mb-1 text-slate-900">Welcome Back</h1>
-                <p className="text-sm text-slate-500 mb-6">Sign in to your GPX TrackPro account.</p>
+                <h1 className="text-2xl font-bold mb-1 text-foreground">Welcome Back</h1>
+                <p className="text-sm text-muted-foreground mb-6">Sign in to your GPX TrackPro account.</p>
 
                 {error && (
-                  <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
                     <AlertCircle className="h-4 w-4 shrink-0" /> {error}
                   </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <Label htmlFor="email" className="text-slate-700 text-sm font-medium">Email</Label>
+                    <Label htmlFor="email" className="text-foreground text-sm font-medium">Email <span className="text-destructive">*</span></Label>
                     <Input
                       id="email"
                       name="email"
                       type="email"
+                      required
                       placeholder="you@example.com"
-                      className="mt-1.5 h-11 bg-slate-50 border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:border-accent focus:ring-accent"
+                      className={`${inputClass} ${inputErrorClass}`}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="password" className="text-slate-700 text-sm font-medium">Password</Label>
+                    <Label htmlFor="password" className="text-foreground text-sm font-medium">Password <span className="text-destructive">*</span></Label>
                     <div className="relative mt-1.5">
                       <Input
                         id="password"
                         name="password"
                         type={showPw ? "text" : "password"}
+                        required
                         placeholder="••••••••"
-                        className="pr-10 h-11 bg-slate-50 border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:border-accent focus:ring-accent"
+                        className={`pr-10 ${inputClass} ${inputErrorClass}`}
                       />
-                      <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => setShowPw(!showPw)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label={showPw ? "Hide password" : "Show password"}
+                      >
                         {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
@@ -153,7 +163,7 @@ export default function LoginPage() {
                   </Button>
                 </form>
 
-                <p className="text-sm text-slate-500 mt-6 text-center">
+                <p className="text-sm text-muted-foreground mt-6 text-center">
                   Don't have an account?{" "}
                   <Link to="/register" className="text-accent font-medium hover:underline">Create one</Link>
                 </p>

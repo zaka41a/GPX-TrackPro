@@ -49,7 +49,7 @@ export default function AboutPage() {
   return (
     <PageTransition>
       <PublicLayout>
-        {/* Hero */}
+        {/* Hero - Dark */}
         <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-20 left-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
@@ -70,13 +70,13 @@ export default function AboutPage() {
         </section>
 
         {/* Stats bar */}
-        <section className="bg-white border-b border-slate-200/60">
+        <section className="bg-card border-b border-border">
           <div className="container py-10">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
               {stats.map((s, i) => (
                 <motion.div key={s.label} {...fadeUp(i * 0.1)} className="text-center">
                   <p className="text-3xl md:text-4xl font-extrabold font-mono-data text-gradient-accent">{s.value}</p>
-                  <p className="text-xs text-slate-500 mt-1.5 uppercase tracking-wider">{s.label}</p>
+                  <p className="text-xs text-muted-foreground mt-1.5 uppercase tracking-wider">{s.label}</p>
                 </motion.div>
               ))}
             </div>
@@ -84,26 +84,26 @@ export default function AboutPage() {
         </section>
 
         {/* Our Values */}
-        <section className="bg-white">
+        <section className="bg-card">
           <div className="container py-20 md:py-28">
             <motion.div {...fadeUp()} className="text-center mb-14">
               <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Our Values</p>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">What Drives Us</h2>
-              <p className="text-slate-500 max-w-lg mx-auto">The principles behind every feature we build and every decision we make.</p>
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">What Drives Us</h2>
+              <p className="text-muted-foreground max-w-lg mx-auto">The principles behind every feature we build and every decision we make.</p>
             </motion.div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl mx-auto">
               {values.map((v, i) => (
                 <motion.div
                   key={v.title}
                   {...fadeUp(i * 0.1)}
-                  className="flex gap-4 p-6 rounded-xl bg-slate-50 border border-slate-200/60 hover:border-accent/30 hover:shadow-lg transition-all duration-300"
+                  className="flex gap-4 p-6 rounded-xl bg-muted border border-border hover:border-accent/30 hover:shadow-lg transition-all duration-300"
                 >
                   <div className="stat-icon-bg bg-accent/10 shrink-0">
                     <v.icon className="h-5 w-5 text-accent" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-900 mb-1">{v.title}</h3>
-                    <p className="text-sm text-slate-500 leading-relaxed">{v.desc}</p>
+                    <h3 className="font-semibold text-foreground mb-1">{v.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{v.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -112,25 +112,25 @@ export default function AboutPage() {
         </section>
 
         {/* Platform Capabilities */}
-        <section className="bg-[hsl(216,30%,98.5%)]">
+        <section className="bg-background">
           <div className="container py-20 md:py-28">
             <motion.div {...fadeUp()} className="text-center mb-14">
               <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Platform</p>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">What GPX TrackPro Does</h2>
-              <p className="text-slate-500 max-w-lg mx-auto">A complete toolkit for tracking, analyzing, and owning your athletic performance data.</p>
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">What GPX TrackPro Does</h2>
+              <p className="text-muted-foreground max-w-lg mx-auto">A complete toolkit for tracking, analyzing, and owning your athletic performance data.</p>
             </motion.div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {capabilities.map((c, i) => (
                 <motion.div
                   key={c.title}
                   {...fadeUp(i * 0.08)}
-                  className="p-6 rounded-xl bg-white border border-slate-200/60 hover:border-accent/30 hover:shadow-lg transition-all duration-300"
+                  className="p-6 rounded-xl bg-card border border-border hover:border-accent/30 hover:shadow-lg transition-all duration-300"
                 >
                   <div className="stat-icon-bg bg-accent/10 mb-4">
                     <c.icon className="h-5 w-5 text-accent" />
                   </div>
-                  <h3 className="font-semibold text-slate-900 mb-1.5">{c.title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed">{c.desc}</p>
+                  <h3 className="font-semibold text-foreground mb-1.5">{c.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{c.desc}</p>
                 </motion.div>
               ))}
             </div>
@@ -138,16 +138,16 @@ export default function AboutPage() {
         </section>
 
         {/* Mission */}
-        <section className="bg-white">
+        <section className="bg-card">
           <div className="container py-20 md:py-28">
             <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <motion.div {...fadeUp()}>
                 <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Our Mission</p>
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">Empowering Athletes Through Data</h2>
-                <p className="text-slate-500 leading-relaxed mb-4">
+                <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Empowering Athletes Through Data</h2>
+                <p className="text-muted-foreground leading-relaxed mb-4">
                   We believe every athlete deserves access to powerful, accurate performance insights — without compromising their privacy.
                 </p>
-                <p className="text-slate-500 leading-relaxed mb-6">
+                <p className="text-muted-foreground leading-relaxed mb-6">
                   GPX TrackPro was born from the frustration of fragmented tools and platforms that lock away your own data. We built a solution that puts you in complete control.
                 </p>
                 <div className="flex flex-wrap gap-3">
@@ -186,47 +186,45 @@ export default function AboutPage() {
         </section>
 
         {/* Roadmap */}
-        <section className="bg-[hsl(216,30%,98.5%)]">
+        <section className="bg-background">
           <div className="container py-20 md:py-28">
             <motion.div {...fadeUp()} className="text-center mb-14">
               <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Roadmap</p>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">Where We're Headed</h2>
-              <p className="text-slate-500 max-w-lg mx-auto">Our vision for the future of GPX TrackPro.</p>
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">Where We're Headed</h2>
+              <p className="text-muted-foreground max-w-lg mx-auto">Our vision for the future of GPX TrackPro.</p>
             </motion.div>
             <div className="max-w-2xl mx-auto space-y-4 relative">
-              {/* Vertical connector line */}
-              <div className="absolute left-[23px] top-8 bottom-8 w-px bg-slate-200" />
+              <div className="absolute left-[23px] top-8 bottom-8 w-px bg-border" />
               {roadmap.map((r, i) => (
                 <motion.div
                   key={r.phase}
                   {...fadeUp(i * 0.12)}
                   className="relative pl-14"
                 >
-                  {/* Dot */}
                   <div className={`absolute left-3.5 top-6 h-4 w-4 rounded-full border-[3px] ${
                     r.status === "complete"
-                      ? "bg-emerald-500 border-emerald-200"
+                      ? "bg-success border-success/30"
                       : r.status === "progress"
-                      ? "bg-amber-500 border-amber-200"
-                      : "bg-slate-300 border-slate-200"
+                      ? "bg-warning border-warning/30"
+                      : "bg-muted-foreground/30 border-border"
                   }`} />
-                  <div className="p-5 rounded-xl bg-slate-50 border border-slate-200/60 hover:border-accent/30 hover:shadow-md transition-all duration-300">
+                  <div className="p-5 rounded-xl bg-muted border border-border hover:border-accent/30 hover:shadow-md transition-all duration-300">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-bold text-accent font-mono-data tracking-wider">{r.phase}</span>
-                        <h3 className="font-semibold text-slate-900">{r.title}</h3>
+                        <h3 className="font-semibold text-foreground">{r.title}</h3>
                       </div>
-                      <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold ${
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
                         r.status === "complete"
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-success/10 text-success"
                           : r.status === "progress"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-slate-100 text-slate-500"
+                          ? "bg-warning/10 text-warning"
+                          : "bg-muted text-muted-foreground"
                       }`}>
                         {r.status === "complete" ? "Complete" : r.status === "progress" ? "In Progress" : "Planned"}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-500 leading-relaxed">{r.desc}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{r.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -234,7 +232,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* CTA */}
+        {/* CTA - Dark */}
         <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
           <div className="container py-20 md:py-28 text-center relative">
             <div className="absolute inset-0 pointer-events-none">

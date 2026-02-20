@@ -9,8 +9,22 @@ import { useAuth } from "@/hooks/useAuth";
 import { activityService } from "@/services/activityService";
 import { Activity } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Upload, Archive, BarChart3, MapPin, Clock, Zap, Route, Timer, Gauge } from "lucide-react";
+import { Upload, Archive, BarChart3, MapPin, Clock, Route, Timer, Gauge, Bike, Footprints, Dumbbell, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
+
+const sportIcons: Record<string, typeof Bike> = { cycling: Bike, running: Footprints, other: Dumbbell };
+
+function formatRelativeDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return dateStr;
+}
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -39,8 +53,8 @@ export default function UserDashboard() {
           {/* Welcome */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">{greeting()}, {user?.name?.split(" ")[0]}</h1>
-              <p className="text-sm text-slate-500">
+              <h1 className="text-2xl font-bold text-foreground">{greeting()}, {user?.name?.split(" ")[0]}</h1>
+              <p className="text-sm text-muted-foreground">
                 {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
               </p>
             </div>
@@ -84,19 +98,20 @@ export default function UserDashboard() {
           {/* Quick Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { to: "/upload", icon: Upload, label: "Upload", desc: "Add new activity", color: "text-accent" },
-              { to: "/activities", icon: Archive, label: "Archive", desc: "Browse all", color: "text-success" },
-              { to: "/activities", icon: BarChart3, label: "Statistics", desc: "View insights", color: "text-warning" },
+              { to: "/upload", icon: Upload, label: "Upload", desc: "Add new activity", color: "text-accent", bg: "bg-accent/10" },
+              { to: "/activities", icon: Archive, label: "Archive", desc: "Browse all", color: "text-success", bg: "bg-success/10" },
+              { to: "/activities", icon: BarChart3, label: "Statistics", desc: "View insights", color: "text-warning", bg: "bg-warning/10" },
             ].map((link, i) => (
               <motion.div key={link.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
-                <Link to={link.to} className="glass-card rounded-xl p-5 flex items-center gap-4 block">
-                  <div className={`stat-icon-bg ${link.color === "text-accent" ? "bg-accent/10" : link.color === "text-success" ? "bg-success/10" : "bg-warning/10"}`}>
+                <Link to={link.to} className="glass-card rounded-xl p-6 flex items-center gap-4 block hover:shadow-md">
+                  <div className={`stat-icon-bg ${link.bg}`}>
                     <link.icon className={`h-5 w-5 ${link.color}`} />
                   </div>
-                  <div>
-                    <p className="font-semibold text-sm text-slate-800">{link.label}</p>
-                    <p className="text-xs text-slate-500">{link.desc}</p>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm text-foreground">{link.label}</p>
+                    <p className="text-xs text-muted-foreground">{link.desc}</p>
                   </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </Link>
               </motion.div>
             ))}
@@ -105,7 +120,7 @@ export default function UserDashboard() {
           {/* Recent Activities */}
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Recent Activities</h2>
+              <h2 className="text-lg font-semibold text-foreground">Recent Activities</h2>
               {activities.length > 0 && (
                 <Link to="/activities" className="text-xs text-accent hover:underline">View all</Link>
               )}
@@ -125,26 +140,34 @@ export default function UserDashboard() {
               />
             ) : (
               <div className="space-y-2">
-                {activities.slice(0, 5).map((a) => (
-                  <Link key={a.id} to={`/activity/${a.id}`} className="glass-card rounded-lg p-4 flex items-center justify-between block">
-                    <div className="flex items-center gap-3">
-                      <div className="stat-icon-bg h-9 w-9 bg-accent/10 rounded-lg">
-                        <Zap className="h-4 w-4 text-accent" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm text-slate-800">{a.name}</p>
-                        <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                          <Clock className="h-3 w-3" />
-                          {a.date} <span className="text-accent/60">·</span> <span className="capitalize">{a.sportType}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-mono-data font-medium text-slate-800">{a.distance} km</p>
-                      <p className="text-xs text-slate-500">{Math.floor(a.duration / 60)} min</p>
-                    </div>
-                  </Link>
-                ))}
+                {activities.slice(0, 5).map((a, i) => {
+                  const SportIcon = sportIcons[a.sportType] || Dumbbell;
+                  return (
+                    <motion.div key={a.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                      <Link to={`/activity/${a.id}`} className="glass-card rounded-xl p-4 flex items-center justify-between block hover:shadow-md">
+                        <div className="flex items-center gap-3">
+                          <div className="stat-icon-bg h-9 w-9 bg-accent/10 rounded-lg">
+                            <SportIcon className="h-4 w-4 text-accent" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-foreground truncate">{a.name}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                              <Clock className="h-3 w-3" />
+                              {formatRelativeDate(a.date)} <span className="text-accent/60">·</span> <span className="capitalize">{a.sportType}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="text-sm font-mono-data font-medium text-foreground">{a.distance} km</p>
+                            <p className="text-xs text-muted-foreground">{Math.floor(a.duration / 60)} min</p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </Link>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </section>
