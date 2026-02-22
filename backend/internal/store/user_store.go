@@ -169,6 +169,22 @@ func (s *Store) ListAdminActions(ctx context.Context, limit int) ([]AdminAction,
 	return items, rows.Err()
 }
 
+func (s *Store) DeleteUser(ctx context.Context, userID int64) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, `DELETE FROM admin_actions WHERE target_user_id = $1 OR admin_id = $1`, userID)
+	_, _ = tx.Exec(ctx, `DELETE FROM activities WHERE user_id = $1`, userID)
+	if _, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 func itoa(v int) string {
 	if v == 0 {
 		return "0"

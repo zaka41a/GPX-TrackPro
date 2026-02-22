@@ -52,6 +52,7 @@ func (h *Handler) Routes() http.Handler {
 
 	mux.HandleFunc("GET /api/admin/users", h.adminListUsers)
 	mux.HandleFunc("PATCH /api/admin/users/", h.adminUpdateUserStatus)
+	mux.HandleFunc("DELETE /api/admin/users/", h.adminDeleteUser)
 	mux.HandleFunc("GET /api/admin/actions", h.adminListActions)
 
 	mux.HandleFunc("POST /api/activities/upload", h.upload)
@@ -203,6 +204,27 @@ func (h *Handler) adminUpdateUserStatus(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "status updated"})
+}
+
+func (h *Handler) adminDeleteUser(w http.ResponseWriter, r *http.Request) {
+	_, ok := h.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+
+	raw := strings.TrimPrefix(r.URL.Path, "/api/admin/users/")
+	targetID, err := strconv.ParseInt(strings.Trim(raw, "/"), 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	if err := h.store.DeleteUser(r.Context(), targetID); err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to delete user")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "user deleted"})
 }
 
 func (h *Handler) adminListActions(w http.ResponseWriter, r *http.Request) {
@@ -378,7 +400,7 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
