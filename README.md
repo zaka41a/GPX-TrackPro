@@ -174,7 +174,7 @@ advanced sport metrics, role-based user management, and offline-ready PWA mode.
    |  +---------------+  |                       |                     |
    |  | api/handlers  |  |                       |  - Cache API calls  |
    |  +-------+-------+  |                       |  - Cache OSM tiles  |
-   |          |          |                      |  - Offline support |
+   |          |          |                       |  - Offline support  |
    |  +-------+-------+  |                       +---------------------+
    |  | auth (JWT)    |  |
    |  +-------+-------+  |
