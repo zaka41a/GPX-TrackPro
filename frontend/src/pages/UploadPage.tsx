@@ -52,8 +52,8 @@ export default function UploadPage() {
     try {
       const activity = await uploadService.uploadGPX(file, sportType, setProgress);
       setResult(activity);
-    } catch (e: any) {
-      setError(e.message || "Upload failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
     }

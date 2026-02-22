@@ -28,8 +28,8 @@ export default function LoginPage() {
     if (!email || !password) { setError("All fields are required."); setLoading(false); return; }
     try {
       await login({ email, password });
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Login failed");
       setLoading(false);
       return;
     }

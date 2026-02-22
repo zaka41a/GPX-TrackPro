@@ -60,8 +60,8 @@ export default function RegisterPage() {
     try {
       await register({ name, email, password: pw });
       setRegistered(true);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Registration failed");
     } finally {
       setLoading(false);
     }

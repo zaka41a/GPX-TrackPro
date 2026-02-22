@@ -91,9 +91,34 @@ export default function ActivityStatsPage() {
   ];
 
   const handleExport = (format: string) => {
-    if (format === "pdf") return;
-    const data = format === "json" ? JSON.stringify(activity, null, 2) : Object.entries(activity).map(([k, v]) => `${k},${v}`).join("\n");
-    const blob = new Blob([data], { type: "text/plain" });
+    let data: string;
+    let mime: string;
+
+    if (format === "json") {
+      data = JSON.stringify(activity, null, 2);
+      mime = "application/json";
+    } else if (format === "csv") {
+      const headers = ["Name", "Date", "Sport", "Distance (km)", "Duration (s)", "Avg Speed (km/h)", "Max Speed (km/h)", "Elevation Gain (m)", "Elevation Loss (m)", "Avg HR (bpm)", "Max HR (bpm)", "Avg Cadence (rpm)", "Pace (min/km)"];
+      const values = [activity.name, activity.date, activity.sportType, activity.distance, activity.duration, activity.avgSpeed, activity.maxSpeed, activity.elevationGain, activity.elevationLoss, activity.avgHeartRate ?? "", activity.maxHeartRate ?? "", activity.avgCadence ?? "", activity.pace ?? ""];
+      data = headers.join(",") + "\n" + values.join(",");
+      if (activity.elevationProfile?.length) {
+        data += "\n\nElevation Profile\nDistance (km),Elevation (m)";
+        activity.elevationProfile.forEach((p) => { data += `\n${p.distance},${p.elevation}`; });
+      }
+      mime = "text/csv";
+    } else if (format === "pdf") {
+      // Generate a printable HTML and trigger print
+      const win = window.open("", "_blank");
+      if (!win) return;
+      const metricsHtml = metrics.filter((m) => m.value !== null).map((m) => `<tr><td style="padding:8px 16px;border-bottom:1px solid #eee;font-weight:500">${m.label}</td><td style="padding:8px 16px;border-bottom:1px solid #eee;font-family:monospace">${m.value} ${m.unit}</td></tr>`).join("");
+      win.document.write(`<!DOCTYPE html><html><head><title>${activity.name}</title><style>body{font-family:system-ui,sans-serif;padding:40px;color:#1a1a1a}h1{font-size:24px;margin-bottom:4px}h2{font-size:16px;margin-top:32px;margin-bottom:12px;color:#666}table{border-collapse:collapse;width:100%}td{text-align:left}.meta{color:#666;font-size:14px;margin-bottom:24px}@media print{body{padding:20px}}</style></head><body><h1>${activity.name}</h1><p class="meta">${activity.date} · ${activity.sportType} · ${activity.distance} km · ${Math.floor(activity.duration / 60)} min</p><h2>Metrics</h2><table>${metricsHtml}</table><script>window.print();window.onafterprint=()=>window.close();</script></body></html>`);
+      win.document.close();
+      return;
+    } else {
+      return;
+    }
+
+    const blob = new Blob([data], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -284,9 +309,8 @@ export default function ActivityStatsPage() {
               <Button variant="outline" className="gap-2 text-foreground" onClick={() => handleExport("csv")}>
                 <Download className="h-4 w-4" /> CSV
               </Button>
-              <Button variant="outline" disabled className="relative gap-2">
+              <Button variant="outline" className="gap-2 text-foreground" onClick={() => handleExport("pdf")}>
                 <Download className="h-4 w-4" /> PDF
-                <Badge className="absolute -top-2 -right-2 text-[10px] px-1.5 bg-warning/10 text-warning border border-warning/20">Soon</Badge>
               </Button>
             </div>
           </section>

@@ -36,8 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = await authService.login(creds);
       setUser(u);
       return u;
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Login failed";
+      setError(message);
       throw e;
     } finally {
       setIsLoading(false);
@@ -50,8 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const u = await authService.register(data);
       return u;
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Registration failed";
+      setError(message);
       throw e;
     } finally {
       setIsLoading(false);
