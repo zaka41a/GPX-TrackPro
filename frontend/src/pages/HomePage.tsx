@@ -18,7 +18,7 @@ const features = [
   { icon: Map, title: "Map Visualization", desc: "See your routes rendered on interactive maps" },
   { icon: Archive, title: "Activity Archive", desc: "Searchable archive with filters and sorting" },
   { icon: Download, title: "Export Data", desc: "Export to JSON, CSV, or PDF formats" },
-  { icon: Shield, title: "Privacy First", desc: "Your data stays yours — always" },
+  { icon: Shield, title: "Privacy First", desc: "Your data stays yours, always" },
 ];
 
 const steps = [
@@ -114,7 +114,7 @@ export default function HomePage() {
                 Own Every <span className="text-gradient-accent">Metric</span>
               </h1>
               <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-                Upload GPX files, analyze performance metrics, visualize routes, and build your personal activity archive — all in one premium dashboard.
+                Upload GPX files, analyze performance metrics, visualize routes, and build your personal activity archive all in one premium dashboard.
               </p>
               <div className="flex items-center justify-center gap-4">
                 <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 glow-accent h-12 px-8" asChild>
@@ -199,7 +199,7 @@ export default function HomePage() {
                 <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Why GPX TrackPro</p>
                 <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Built for Serious Athletes</h2>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  Whether you're a cyclist, runner, or hiker — GPX TrackPro gives you the precision analytics and privacy-first approach you deserve.
+                  Whether you're a cyclist, runner, or hiker, GPX TrackPro gives you the precision analytics and privacy-first approach you deserve.
                 </p>
                 <div className="space-y-3">
                   {trustedBy.map((item, i) => (

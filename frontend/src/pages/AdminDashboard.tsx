@@ -1,17 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/layouts/AppShell";
 import { KpiCard } from "@/components/KpiCard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SkeletonKpiRow, SkeletonTable } from "@/components/SkeletonCards";
 import { adminService } from "@/services/adminService";
-import { User, AdminStats, AdminAction } from "@/types";
+import { communityService } from "@/services/communityService";
+import { User, AdminStats, CommunityBan } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserCheck, UserX, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Users, UserCheck, UserX, Clock, CheckCircle, XCircle, Trash2, Shield, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 const statusFilters = [
   { value: "all", label: "All Statuses" },
@@ -23,27 +25,35 @@ const statusFilters = [
 export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
-  const [actions, setActions] = useState<AdminAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [confirmAction, setConfirmAction] = useState<{ type: "approve" | "reject"; user: User } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: "approve" | "reject" | "delete"; user: User } | null>(null);
+  const [bans, setBans] = useState<CommunityBan[]>([]);
+  const confirmRef = useRef(confirmAction);
+  confirmRef.current = confirmAction;
 
   const fetchData = async () => {
-    const [s, u, a] = await Promise.all([adminService.getDashboardStats(), adminService.getUsers(), adminService.getActionTimeline()]);
+    const [s, u] = await Promise.all([adminService.getDashboardStats(), adminService.getUsers()]);
     setStats(s);
     setUsers(u);
-    setActions(a);
     setLoading(false);
+    communityService.listBans().then(setBans).catch(() => {});
   };
 
   useEffect(() => { fetchData(); }, []);
 
   const handleConfirm = async () => {
-    if (!confirmAction) return;
-    if (confirmAction.type === "approve") await adminService.approveUser(confirmAction.user.id);
-    else await adminService.rejectUser(confirmAction.user.id);
+    const action = confirmRef.current;
+    if (!action) return;
     setConfirmAction(null);
+    try {
+      if (action.type === "approve") await adminService.approveUser(action.user.id);
+      else if (action.type === "reject") await adminService.rejectUser(action.user.id);
+      else if (action.type === "delete") await adminService.deleteUser(action.user.id);
+    } catch (e) {
+      console.error("Action failed:", e);
+    }
     await fetchData();
   };
 
@@ -62,11 +72,18 @@ export default function AdminDashboard() {
     return <Badge variant="outline" className={cn("capitalize", styles[status] || "")}>{status}</Badge>;
   };
 
+  const getInitials = (name: string) => {
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+
   return (
     <AppShell>
       <PageTransition>
         <div className="space-y-8">
-          <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Manage user approvals and system access</p>
+          </div>
 
           {/* KPIs */}
           {loading ? (
@@ -82,8 +99,18 @@ export default function AdminDashboard() {
 
           {/* User table */}
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-4">User Management</h2>
-            <div className="glass-surface rounded-xl p-4 flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="section-icon-bg">
+                <Shield className="h-4 w-4 text-accent" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">User Management</h2>
+                {!loading && (
+                  <p className="text-xs text-muted-foreground">{filtered.length} user{filtered.length !== 1 ? "s" : ""} shown</p>
+                )}
+              </div>
+            </div>
+            <div className="glass-surface rounded-xl p-4 flex flex-wrap items-center gap-3 mb-4 accent-line-top">
               <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-64 h-9 bg-muted/50 text-sm" />
               <div className="flex gap-1.5">
                 {statusFilters.map((f) => (
@@ -118,7 +145,14 @@ export default function AdminDashboard() {
                     <TableBody>
                       {filtered.map((u) => (
                         <TableRow key={u.id} className="hover:bg-accent/5 transition-colors">
-                          <TableCell className="font-medium text-foreground">{u.name}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shrink-0">
+                                <span className="text-[11px] font-bold text-white">{getInitials(u.name)}</span>
+                              </div>
+                              <span className="font-medium text-foreground">{u.name}</span>
+                            </div>
+                          </TableCell>
                           <TableCell className="text-muted-foreground">{u.email}</TableCell>
                           <TableCell>{statusBadge(u.status)}</TableCell>
                           <TableCell className="text-muted-foreground">{u.createdAt}</TableCell>
@@ -134,6 +168,9 @@ export default function AdminDashboard() {
                                   <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
                                 </Button>
                               )}
+                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 text-xs" onClick={() => setConfirmAction({ type: "delete", user: u })}>
+                                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -145,11 +182,16 @@ export default function AdminDashboard() {
                 {/* Mobile cards */}
                 <div className="md:hidden space-y-3">
                   {filtered.map((u) => (
-                    <div key={u.id} className="glass-card rounded-xl p-4">
+                    <div key={u.id} className="glass-card rounded-xl p-4 accent-line-left">
                       <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm text-foreground truncate">{u.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shrink-0">
+                            <span className="text-[11px] font-bold text-white">{getInitials(u.name)}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm text-foreground truncate">{u.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                          </div>
                         </div>
                         {statusBadge(u.status)}
                       </div>
@@ -166,6 +208,9 @@ export default function AdminDashboard() {
                               <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
                             </Button>
                           )}
+                          <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 h-9 text-xs px-3" onClick={() => setConfirmAction({ type: "delete", user: u })}>
+                            <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -175,38 +220,74 @@ export default function AdminDashboard() {
             )}
           </section>
 
-          {/* Timeline */}
+          {/* Community Moderation */}
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-4">Action Timeline</h2>
-            {actions.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No actions yet</p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="section-icon-bg">
+                <MessageSquare className="h-4 w-4 text-accent" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Community Moderation</h2>
+                <p className="text-xs text-muted-foreground">{bans.length} banned user{bans.length !== 1 ? "s" : ""}</p>
+              </div>
+              <Link to="/community" className="ml-auto">
+                <Button variant="outline" size="sm" className="text-xs">View Community Feed</Button>
+              </Link>
+            </div>
+
+            {bans.length === 0 ? (
+              <div className="glass-surface rounded-xl p-6 text-center accent-line-top">
+                <p className="text-sm text-muted-foreground">No banned users</p>
+              </div>
             ) : (
-              <div className="space-y-2 relative">
-                <div className="absolute left-[17px] top-3 bottom-3 w-px bg-border/50" />
-                {actions.map((a) => (
-                  <div key={a.id} className="glass-card rounded-xl p-4 pl-10 relative">
-                    <div className={cn(
-                      "absolute left-3 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full",
-                      a.action === "Approved" ? "bg-success" : "bg-destructive"
-                    )} />
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm"><span className="font-medium text-foreground">{a.action}</span> <span className="text-muted-foreground">{a.targetUser}</span></p>
-                      <p className="text-xs text-muted-foreground">{new Date(a.timestamp).toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="glass-surface rounded-xl overflow-hidden accent-line-top">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead>Banned At</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bans.map((ban) => (
+                      <TableRow key={ban.id} className="hover:bg-accent/5 transition-colors">
+                        <TableCell className="font-medium text-foreground">{ban.userName}</TableCell>
+                        <TableCell className="text-muted-foreground">{ban.userEmail}</TableCell>
+                        <TableCell className="text-muted-foreground">{ban.reason || "No reason"}</TableCell>
+                        <TableCell className="text-muted-foreground">{new Date(ban.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-success hover:text-success hover:bg-success/10 h-8 text-xs"
+                            onClick={async () => {
+                              await communityService.unbanUser(ban.userId);
+                              communityService.listBans().then(setBans).catch(() => {});
+                            }}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" /> Unban
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </section>
+
         </div>
 
         <ConfirmDialog
           open={!!confirmAction}
           onOpenChange={() => setConfirmAction(null)}
-          title={confirmAction?.type === "approve" ? "Approve User" : "Reject User"}
-          description={`Are you sure you want to ${confirmAction?.type} ${confirmAction?.user.name}?`}
-          confirmLabel={confirmAction?.type === "approve" ? "Approve" : "Reject"}
-          variant={confirmAction?.type === "reject" ? "destructive" : "default"}
+          title={confirmAction?.type === "approve" ? "Approve User" : confirmAction?.type === "delete" ? "Delete User" : "Reject User"}
+          description={`Are you sure you want to ${confirmAction?.type} ${confirmAction?.user.name}?${confirmAction?.type === "delete" ? " This action cannot be undone." : ""}`}
+          confirmLabel={confirmAction?.type === "approve" ? "Approve" : confirmAction?.type === "delete" ? "Delete" : "Reject"}
+          variant={confirmAction?.type === "approve" ? "default" : "destructive"}
           onConfirm={handleConfirm}
         />
       </PageTransition>

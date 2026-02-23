@@ -9,7 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { activityService } from "@/services/activityService";
 import { Activity } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Upload, Archive, BarChart3, MapPin, Clock, Route, Timer, Gauge, Bike, Footprints, Dumbbell, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Upload, Archive, BarChart3, MapPin, Clock, Route, Timer, Gauge, Bike, Footprints, Dumbbell, ChevronRight, Activity as ActivityIcon } from "lucide-react";
 import { motion } from "framer-motion";
 
 const sportIcons: Record<string, typeof Bike> = { cycling: Bike, running: Footprints, other: Dumbbell };
@@ -51,16 +52,18 @@ export default function UserDashboard() {
       <PageTransition>
         <div className="space-y-8">
           {/* Welcome */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{greeting()}, {user?.name?.split(" ")[0]}</h1>
-              <p className="text-sm text-muted-foreground">
-                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-              </p>
+          <div className="glass-surface rounded-xl p-6 border-l-2 border-accent/40">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">{greeting()}, {user?.name?.split(" ")[0]}</h1>
+                <p className="text-sm text-muted-foreground">
+                  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                </p>
+              </div>
+              <Button className="bg-accent text-accent-foreground hover:bg-accent/90 glow-accent" asChild>
+                <Link to="/upload"><Upload className="h-4 w-4 mr-2" /> Upload GPX</Link>
+              </Button>
             </div>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90 glow-accent" asChild>
-              <Link to="/upload"><Upload className="h-4 w-4 mr-2" /> Upload GPX</Link>
-            </Button>
           </div>
 
           {/* KPI Row */}
@@ -90,7 +93,7 @@ export default function UserDashboard() {
                 title="Avg Speed"
                 value={activities.length > 0 ? `${avgSpeed.toFixed(1)} km/h` : null}
                 icon={<Gauge className="h-5 w-5" />}
-                iconBg="bg-primary/20 text-secondary"
+                iconBg="bg-accent/10 text-accent"
               />
             </div>
           )}
@@ -100,10 +103,10 @@ export default function UserDashboard() {
             {[
               { to: "/upload", icon: Upload, label: "Upload", desc: "Add new activity", color: "text-accent", bg: "bg-accent/10" },
               { to: "/activities", icon: Archive, label: "Archive", desc: "Browse all", color: "text-success", bg: "bg-success/10" },
-              { to: "/activities", icon: BarChart3, label: "Statistics", desc: "View insights", color: "text-warning", bg: "bg-warning/10" },
+              { to: "/statistics", icon: BarChart3, label: "Statistics", desc: "View insights", color: "text-warning", bg: "bg-warning/10" },
             ].map((link, i) => (
               <motion.div key={link.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
-                <Link to={link.to} className="glass-card rounded-xl p-6 flex items-center gap-4 block hover:shadow-md">
+                <Link to={link.to} className="glass-card rounded-xl p-6 flex items-center gap-4 block hover-lift border-t-2 border-transparent hover:border-accent/30">
                   <div className={`stat-icon-bg ${link.bg}`}>
                     <link.icon className={`h-5 w-5 ${link.color}`} />
                   </div>
@@ -120,7 +123,17 @@ export default function UserDashboard() {
           {/* Recent Activities */}
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground">Recent Activities</h2>
+              <div className="flex items-center gap-3">
+                <div className="section-icon-bg">
+                  <ActivityIcon className="h-4 w-4 text-accent" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-foreground">Recent Activities</h2>
+                  {activities.length > 0 && (
+                    <Badge className="bg-accent/10 text-accent border-accent/20 text-[10px]">{activities.length}</Badge>
+                  )}
+                </div>
+              </div>
               {activities.length > 0 && (
                 <Link to="/activities" className="text-xs text-accent hover:underline">View all</Link>
               )}
@@ -144,7 +157,7 @@ export default function UserDashboard() {
                   const SportIcon = sportIcons[a.sportType] || Dumbbell;
                   return (
                     <motion.div key={a.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                      <Link to={`/activity/${a.id}`} className="glass-card rounded-xl p-4 flex items-center justify-between block hover:shadow-md">
+                      <Link to={`/activity/${a.id}`} className="glass-card rounded-xl p-4 flex items-center justify-between block border-l-2 border-accent/20 hover:border-accent/60 transition-all hover:shadow-md group">
                         <div className="flex items-center gap-3">
                           <div className="stat-icon-bg h-9 w-9 bg-accent/10 rounded-lg">
                             <SportIcon className="h-4 w-4 text-accent" />
@@ -162,7 +175,7 @@ export default function UserDashboard() {
                             <p className="text-sm font-mono-data font-medium text-foreground">{a.distance} km</p>
                             <p className="text-xs text-muted-foreground">{Math.floor(a.duration / 60)} min</p>
                           </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                         </div>
                       </Link>
                     </motion.div>

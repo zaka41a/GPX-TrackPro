@@ -18,8 +18,8 @@ export function PublicHeader() {
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-lg">
       <div className="container flex items-center justify-between h-16">
         <Link to="/" className="flex items-center gap-3">
-          <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-9 w-9 rounded-lg object-cover" />
-          <span className="text-lg font-bold text-foreground">GPX TrackPro</span>
+          <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-14 w-14 rounded-lg object-cover" />
+          <span className="text-lg font-bold text-foreground">GPX Track<span className="text-gradient-accent">Pro</span></span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">

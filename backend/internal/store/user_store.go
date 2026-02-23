@@ -185,6 +185,30 @@ func (s *Store) DeleteUser(ctx context.Context, userID int64) error {
 	return tx.Commit(ctx)
 }
 
+func (s *Store) ListApprovedUsers(ctx context.Context) ([]User, error) {
+	query := `
+		SELECT id, first_name, last_name, email, role::text, status::text, created_at
+		FROM users
+		WHERE status::text = 'approved'
+		ORDER BY first_name, last_name
+	`
+	rows, err := s.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]User, 0)
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Role, &u.Status, &u.CreatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, u)
+	}
+	return list, rows.Err()
+}
+
 func itoa(v int) string {
 	if v == 0 {
 		return "0"

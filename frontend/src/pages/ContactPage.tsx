@@ -225,7 +225,7 @@ export default function ContactPage() {
                   {[
                     { icon: Clock3, title: "Fast Response", desc: "24-48 hour average reply time" },
                     { icon: ShieldCheck, title: "Secure & Private", desc: "Your messages are encrypted and confidential" },
-                    { icon: MessageSquare, title: "Real Humans", desc: "No bots — you talk to our actual team" },
+                    { icon: MessageSquare, title: "Real Humans", desc: "No bots, you talk to our actual team" },
                   ].map((item, i) => (
                     <motion.div
                       key={item.title}

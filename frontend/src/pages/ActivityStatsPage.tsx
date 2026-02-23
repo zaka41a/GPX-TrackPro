@@ -7,15 +7,17 @@ import { activityService } from "@/services/activityService";
 import { ActivityStatistics } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, ArrowLeft, MapPin, BarChart3, Bike, Footprints, Dumbbell } from "lucide-react";
+import { Download, ArrowLeft, MapPin, BarChart3, Bike, Footprints, Dumbbell, Calendar } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Tooltip as MapTooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { cn } from "@/lib/utils";
 
 const sportIcons: Record<string, typeof Bike> = { cycling: Bike, running: Footprints, other: Dumbbell };
+const sportBg: Record<string, string> = { cycling: "bg-accent/10 text-accent", running: "bg-success/10 text-success", other: "bg-warning/10 text-warning" };
 
 function FitBounds({ positions }: { positions: [number, number][] }) {
   const map = useMap();
@@ -76,6 +78,7 @@ export default function ActivityStatsPage() {
   );
 
   const SportIcon = sportIcons[activity.sportType] || Dumbbell;
+  const sportColor = sportBg[activity.sportType] || sportBg.other;
 
   const metrics = [
     { label: "Distance", value: activity.distance, unit: "km" },
@@ -107,11 +110,10 @@ export default function ActivityStatsPage() {
       }
       mime = "text/csv";
     } else if (format === "pdf") {
-      // Generate a printable HTML and trigger print
       const win = window.open("", "_blank");
       if (!win) return;
       const metricsHtml = metrics.filter((m) => m.value !== null).map((m) => `<tr><td style="padding:8px 16px;border-bottom:1px solid #eee;font-weight:500">${m.label}</td><td style="padding:8px 16px;border-bottom:1px solid #eee;font-family:monospace">${m.value} ${m.unit}</td></tr>`).join("");
-      win.document.write(`<!DOCTYPE html><html><head><title>${activity.name}</title><style>body{font-family:system-ui,sans-serif;padding:40px;color:#1a1a1a}h1{font-size:24px;margin-bottom:4px}h2{font-size:16px;margin-top:32px;margin-bottom:12px;color:#666}table{border-collapse:collapse;width:100%}td{text-align:left}.meta{color:#666;font-size:14px;margin-bottom:24px}@media print{body{padding:20px}}</style></head><body><h1>${activity.name}</h1><p class="meta">${activity.date} · ${activity.sportType} · ${activity.distance} km · ${Math.floor(activity.duration / 60)} min</p><h2>Metrics</h2><table>${metricsHtml}</table><script>window.print();window.onafterprint=()=>window.close();</script></body></html>`);
+      win.document.write(`<!DOCTYPE html><html><head><title>${activity.name}</title><style>body{font-family:system-ui,sans-serif;padding:40px;color:#1a1a1a}h1{font-size:24px;margin-bottom:4px}h2{font-size:16px;margin-top:32px;margin-bottom:12px;color:#666}table{border-collapse:collapse;width:100%}td{text-align:left}.meta{color:#666;font-size:14px;margin-bottom:24px}@media print{body{padding:20px}}</style></head><body><h1>${activity.name}</h1><p class="meta">${activity.date} · ${activity.sportType} · ${activity.distance} km · ${Math.floor(activity.duration / 60)} min</p><h2>Metrics</h2><table>${metricsHtml}</table><script>window.print();window.onafterprint=()=>window.close();<\/script></body></html>`);
       win.document.close();
       return;
     } else {
@@ -133,15 +135,21 @@ export default function ActivityStatsPage() {
         <div className="space-y-8">
           {/* Hero header */}
           <div className="rounded-xl border border-border bg-card overflow-hidden relative">
-            <div className="h-1 bg-gradient-to-r from-accent to-accent/40" />
+            <div className="h-1.5 bg-gradient-to-r from-accent via-accent/60 to-accent/20" />
             <div className="flex items-center gap-3 p-6">
               <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground" asChild>
                 <Link to="/activities" aria-label="Back to archive"><ArrowLeft className="h-4 w-4" /></Link>
               </Button>
+              <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", sportColor)}>
+                <SportIcon className="h-5 w-5" />
+              </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-2xl font-bold text-foreground truncate">{activity.name}</h1>
                 <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-sm text-muted-foreground">{activity.date}</span>
+                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {activity.date}
+                  </span>
                   <Badge variant="outline" className="text-accent border-accent/30 gap-1">
                     <SportIcon className="h-3 w-3" />
                     <span className="capitalize">{activity.sportType}</span>
@@ -151,10 +159,10 @@ export default function ActivityStatsPage() {
             </div>
           </div>
 
-          {/* Key metrics */}
+          {/* Key metrics - first 2 larger with top accent, rest with left border */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {metrics.slice(0, 2).map((m) => (
-              <div key={m.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-sm transition-shadow">
+              <div key={m.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-sm transition-shadow accent-line-top">
                 <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">{m.label}</p>
                 {m.value !== null ? (
                   <p className="font-bold">
@@ -167,7 +175,7 @@ export default function ActivityStatsPage() {
               </div>
             ))}
             {metrics.slice(2).map((m) => (
-              <div key={m.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-sm transition-shadow">
+              <div key={m.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-sm transition-shadow border-l-2 border-l-accent/15">
                 <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">{m.label}</p>
                 {m.value !== null ? (
                   <p className="font-bold">
@@ -184,12 +192,17 @@ export default function ActivityStatsPage() {
           {/* Elevation Profile Chart */}
           <section>
             <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-              <div className="h-7 w-7 bg-accent/10 rounded-lg flex items-center justify-center">
-                <BarChart3 className="h-3.5 w-3.5 text-accent" />
+              <div className="section-icon-bg">
+                <BarChart3 className="h-4 w-4 text-accent" />
               </div>
-              Elevation Profile
+              <div>
+                <span>Elevation Profile</span>
+                {elevationData.length > 0 && (
+                  <p className="text-xs text-muted-foreground font-normal">Gain {activity.elevationGain}m · Loss {activity.elevationLoss}m</p>
+                )}
+              </div>
             </h2>
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className="rounded-xl border border-border bg-card p-4 accent-line-top">
               {elevationData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={240}>
                   <AreaChart data={elevationData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
@@ -253,8 +266,8 @@ export default function ActivityStatsPage() {
           {/* Route Map */}
           <section>
             <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-              <div className="h-7 w-7 bg-accent/10 rounded-lg flex items-center justify-center">
-                <MapPin className="h-3.5 w-3.5 text-accent" />
+              <div className="section-icon-bg">
+                <MapPin className="h-4 w-4 text-accent" />
               </div>
               Route Map
             </h2>
@@ -297,19 +310,19 @@ export default function ActivityStatsPage() {
           {/* Export */}
           <section>
             <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-              <div className="h-7 w-7 bg-accent/10 rounded-lg flex items-center justify-center">
-                <Download className="h-3.5 w-3.5 text-accent" />
+              <div className="section-icon-bg">
+                <Download className="h-4 w-4 text-accent" />
               </div>
               Export Data
             </h2>
             <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap gap-3">
-              <Button variant="outline" className="gap-2 text-foreground" onClick={() => handleExport("json")}>
+              <Button variant="outline" className="gap-2 text-foreground hover:text-accent hover:border-accent/30" onClick={() => handleExport("json")}>
                 <Download className="h-4 w-4" /> JSON
               </Button>
-              <Button variant="outline" className="gap-2 text-foreground" onClick={() => handleExport("csv")}>
+              <Button variant="outline" className="gap-2 text-foreground hover:text-accent hover:border-accent/30" onClick={() => handleExport("csv")}>
                 <Download className="h-4 w-4" /> CSV
               </Button>
-              <Button variant="outline" className="gap-2 text-foreground" onClick={() => handleExport("pdf")}>
+              <Button variant="outline" className="gap-2 text-foreground hover:text-accent hover:border-accent/30" onClick={() => handleExport("pdf")}>
                 <Download className="h-4 w-4" /> PDF
               </Button>
             </div>

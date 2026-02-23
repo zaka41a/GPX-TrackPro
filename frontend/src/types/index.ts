@@ -65,6 +65,56 @@ export interface ContactFormData {
   message: string;
 }
 
+export interface CommunityPost {
+  id: number;
+  authorId: number;
+  authorName: string;
+  content: string;
+  activityId?: number;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  reactions: { emoji: string; count: number; reacted: boolean }[];
+  commentCount: number;
+}
+
+export interface CommunityComment {
+  id: number;
+  postId: number;
+  authorId: number;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface CommunityBan {
+  id: number;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  bannedBy: number;
+  reason: string;
+  createdAt: string;
+}
+
+export interface DMConversation {
+  id: number;
+  otherUserId: number;
+  otherUserName: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+}
+
+export interface DMMessage {
+  id: number;
+  conversationId: number;
+  senderId: number;
+  content: string;
+  readAt?: string;
+  createdAt: string;
+}
+
 export interface AthleteProfile {
   bio: string;
   phone: string;

@@ -13,7 +13,7 @@ interface KpiCardProps {
 
 export function KpiCard({ title, value, icon, iconBg, trend, className }: KpiCardProps) {
   return (
-    <Card className={cn("glass-card", className)}>
+    <Card className={cn("glass-card border-t-2 border-transparent hover:border-accent/30 transition-all", className)}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
@@ -26,7 +26,7 @@ export function KpiCard({ title, value, icon, iconBg, trend, className }: KpiCar
             {trend && <p className="text-xs text-accent mt-1.5">{trend}</p>}
           </div>
           {icon && (
-            <div className={cn("stat-icon-bg", iconBg || "bg-accent/10 text-accent")}>
+            <div className={cn("stat-icon-bg ring-1 ring-inset ring-border/10", iconBg || "bg-accent/10 text-accent")}>
               {icon}
             </div>
           )}

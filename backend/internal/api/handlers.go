@@ -59,6 +59,31 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /api/activities", h.list)
 	mux.HandleFunc("GET /api/activities/", h.getByID)
 
+	mux.HandleFunc("GET /api/users/approved", h.listApprovedUsers)
+
+	// Community
+	mux.HandleFunc("GET /api/community/posts", h.communityListPosts)
+	mux.HandleFunc("POST /api/community/posts", h.communityCreatePost)
+	mux.HandleFunc("GET /api/community/posts/", h.communityGetPost)
+	mux.HandleFunc("DELETE /api/community/posts/", h.communityDeletePost)
+	mux.HandleFunc("POST /api/community/posts/{id}/comments", h.communityAddComment)
+	mux.HandleFunc("DELETE /api/community/comments/", h.communityDeleteComment)
+	mux.HandleFunc("POST /api/community/posts/{id}/reactions", h.communityToggleReaction)
+	mux.HandleFunc("PUT /api/community/posts/{id}/pin", h.communityPinPost)
+
+	// Community moderation
+	mux.HandleFunc("POST /api/community/bans", h.communityBanUser)
+	mux.HandleFunc("DELETE /api/community/bans/", h.communityUnbanUser)
+	mux.HandleFunc("GET /api/community/bans", h.communityListBans)
+
+	// Messaging
+	mux.HandleFunc("GET /api/messages/conversations", h.messagingListConversations)
+	mux.HandleFunc("POST /api/messages/conversations", h.messagingCreateConversation)
+	mux.HandleFunc("GET /api/messages/conversations/{id}/messages", h.messagingListMessages)
+	mux.HandleFunc("POST /api/messages/conversations/{id}/messages", h.messagingSendMessage)
+	mux.HandleFunc("POST /api/messages/conversations/{id}/read", h.messagingMarkRead)
+	mux.HandleFunc("GET /api/messages/unread-count", h.messagingUnreadCount)
+
 	return cors(mux)
 }
 
@@ -330,6 +355,19 @@ func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, activity)
 }
 
+func (h *Handler) listApprovedUsers(w http.ResponseWriter, r *http.Request) {
+	_, ok := h.requireApprovedUser(w, r)
+	if !ok {
+		return
+	}
+	users, err := h.store.ListApprovedUsers(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to list users")
+		return
+	}
+	writeJSON(w, http.StatusOK, users)
+}
+
 func (h *Handler) requireApprovedUser(w http.ResponseWriter, r *http.Request) (store.User, bool) {
 	user, ok := h.requireAuthenticated(w, r)
 	if !ok {
@@ -400,7 +438,7 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

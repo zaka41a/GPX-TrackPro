@@ -17,6 +17,10 @@ import ActivitiesArchivePage from "./pages/ActivitiesArchivePage";
 import ActivityStatsPage from "./pages/ActivityStatsPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProfilePage from "./pages/ProfilePage";
+import StatisticsPage from "./pages/StatisticsPage";
+import CommunityFeedPage from "./pages/CommunityFeedPage";
+import CommunityPostPage from "./pages/CommunityPostPage";
+import MessagingPage from "./pages/MessagingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,7 +45,11 @@ const App = () => (
             <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
             <Route path="/activities" element={<ProtectedRoute><ActivitiesArchivePage /></ProtectedRoute>} />
             <Route path="/activity/:id" element={<ProtectedRoute><ActivityStatsPage /></ProtectedRoute>} />
+            <Route path="/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/community" element={<ProtectedRoute><CommunityFeedPage /></ProtectedRoute>} />
+            <Route path="/community/:id" element={<ProtectedRoute><CommunityPostPage /></ProtectedRoute>} />
+            <Route path="/messages" element={<ProtectedRoute><MessagingPage /></ProtectedRoute>} />
 
             {/* Admin */}
             <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />

@@ -174,6 +174,22 @@
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
   }
+
+  .accent-line-top {
+    @apply border-t-2 border-accent/20;
+  }
+
+  .accent-line-left {
+    @apply border-l-2 border-accent/30;
+  }
+
+  .section-icon-bg {
+    @apply h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-accent/10;
+  }
+
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md;
+  }
 }
 
 /* Custom scrollbar */

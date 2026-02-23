@@ -28,7 +28,7 @@ const capabilities = [
   { icon: Map, title: "Route Visualization", desc: "Interactive maps rendering your exact route with elevation profiles" },
   { icon: Globe, title: "Activity Archive", desc: "Searchable, filterable archive of all your training sessions" },
   { icon: TrendingUp, title: "Progress Tracking", desc: "Monitor trends across your activities over time" },
-  { icon: Shield, title: "Secure & Private", desc: "Full data ownership — export or delete anytime" },
+  { icon: Shield, title: "Secure & Private", desc: "Full data ownership, export or delete anytime" },
 ];
 
 const roadmap = [
@@ -145,7 +145,7 @@ export default function AboutPage() {
                 <p className="text-accent text-sm font-semibold tracking-widest uppercase mb-3">Our Mission</p>
                 <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Empowering Athletes Through Data</h2>
                 <p className="text-muted-foreground leading-relaxed mb-4">
-                  We believe every athlete deserves access to powerful, accurate performance insights — without compromising their privacy.
+                  We believe every athlete deserves access to powerful, accurate performance insights without compromising their privacy.
                 </p>
                 <p className="text-muted-foreground leading-relaxed mb-6">
                   GPX TrackPro was born from the frustration of fragmented tools and platforms that lock away your own data. We built a solution that puts you in complete control.

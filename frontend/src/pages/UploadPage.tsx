@@ -16,6 +16,12 @@ const sportOptions: { value: SportType; label: string; desc: string; icon: typeo
   { value: "other", label: "Other", desc: "Hiking, Gym...", icon: Dumbbell },
 ];
 
+const steps = [
+  { label: "Select File", step: 1 },
+  { label: "Configure", step: 2 },
+  { label: "Complete", step: 3 },
+];
+
 export default function UploadPage() {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -26,6 +32,8 @@ export default function UploadPage() {
   const [result, setResult] = useState<Activity | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+
+  const currentStep = result ? 3 : file ? 2 : 1;
 
   const handleFile = (f: File) => {
     if (!f.name.toLowerCase().endsWith(".gpx")) {
@@ -74,21 +82,60 @@ export default function UploadPage() {
             <p className="text-sm text-muted-foreground">Drag & drop or select your GPX file to analyze.</p>
           </div>
 
-          {result ? (
-            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="glass-surface rounded-xl p-8 text-center">
-              <div className="stat-icon-bg bg-success/10 mx-auto mb-4">
-                <CheckCircle className="h-5 w-5 text-success" />
+          {/* Step Indicator */}
+          <div className="flex items-center justify-center gap-0">
+            {steps.map((s, i) => (
+              <div key={s.step} className="flex items-center">
+                <div className="flex flex-col items-center gap-1.5">
+                  <div
+                    className={cn(
+                      "h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-all",
+                      currentStep >= s.step
+                        ? "bg-accent text-accent-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {currentStep > s.step ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      s.step
+                    )}
+                  </div>
+                  <span className={cn(
+                    "text-[11px] font-medium",
+                    currentStep >= s.step ? "text-accent" : "text-muted-foreground"
+                  )}>
+                    {s.label}
+                  </span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div className={cn(
+                    "w-16 sm:w-24 h-0.5 mx-2 mb-5 rounded-full transition-colors",
+                    currentStep > s.step ? "bg-accent" : "bg-muted"
+                  )} />
+                )}
               </div>
-              <h2 className="text-xl font-bold mb-2 text-foreground">Upload Complete!</h2>
-              <p className="text-sm text-muted-foreground mb-1">{result.name}</p>
-              <p className="text-xs text-muted-foreground mb-6">{result.distance} km · {Math.floor(result.duration / 60)} min · {result.sportType}</p>
-              <div className="flex flex-col items-center gap-3">
-                <Button className="bg-accent text-accent-foreground hover:bg-accent/90" asChild>
-                  <Link to={`/activity/${result.id}`}><BarChart3 className="h-4 w-4 mr-2" /> Open Activity Analysis</Link>
-                </Button>
-                <Button variant="ghost" className="text-muted-foreground" onClick={() => { setResult(null); setFile(null); setProgress(0); }}>
-                  <Upload className="h-4 w-4 mr-2" /> Upload Another
-                </Button>
+            ))}
+          </div>
+
+          {result ? (
+            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="glass-surface rounded-xl overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-success to-success/40" />
+              <div className="p-8 text-center">
+                <div className="h-14 w-14 rounded-full bg-success/10 ring-4 ring-success/20 mx-auto mb-4 flex items-center justify-center">
+                  <CheckCircle className="h-7 w-7 text-success" />
+                </div>
+                <h2 className="text-xl font-bold mb-2 text-foreground">Upload Complete!</h2>
+                <p className="text-sm text-muted-foreground mb-1">{result.name}</p>
+                <p className="text-xs text-muted-foreground mb-6">{result.distance} km · {Math.floor(result.duration / 60)} min · {result.sportType}</p>
+                <div className="flex flex-col items-center gap-3">
+                  <Button className="bg-accent text-accent-foreground hover:bg-accent/90" asChild>
+                    <Link to={`/activity/${result.id}`}><BarChart3 className="h-4 w-4 mr-2" /> Open Activity Analysis</Link>
+                  </Button>
+                  <Button variant="ghost" className="text-muted-foreground" onClick={() => { setResult(null); setFile(null); setProgress(0); }}>
+                    <Upload className="h-4 w-4 mr-2" /> Upload Another
+                  </Button>
+                </div>
               </div>
             </motion.div>
           ) : (
@@ -104,10 +151,13 @@ export default function UploadPage() {
                 aria-label="Upload GPX file"
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileRef.current?.click(); }}
                 className={cn(
-                  "glass-surface rounded-xl border-2 border-dashed p-16 text-center cursor-pointer transition-all duration-300",
+                  "glass-surface rounded-xl border-2 border-dashed p-16 text-center cursor-pointer transition-all duration-300 relative overflow-hidden",
                   dragOver ? "border-accent bg-accent/5 scale-[1.01]" : "border-border hover:border-accent/50"
                 )}
               >
+                {dragOver && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-accent/5 to-transparent pointer-events-none" />
+                )}
                 <motion.div
                   animate={{ y: [0, -4, 0] }}
                   transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -116,8 +166,8 @@ export default function UploadPage() {
                 </motion.div>
                 {file ? (
                   <div className="flex items-center justify-center gap-3">
-                    <div className="stat-icon-bg h-9 w-9 bg-accent/10 rounded-lg">
-                      <File className="h-4 w-4 text-accent" />
+                    <div className="h-9 w-9 rounded-full bg-success/10 flex items-center justify-center">
+                      <CheckCircle className="h-4 w-4 text-success" />
                     </div>
                     <div className="text-left">
                       <p className="text-sm font-medium text-foreground">{file.name}</p>
@@ -149,16 +199,19 @@ export default function UploadPage() {
                       key={opt.value}
                       onClick={() => setSportType(opt.value)}
                       className={cn(
-                        "flex-1 flex flex-col items-center gap-1 rounded-lg py-3 text-sm font-medium transition-all border",
+                        "flex-1 flex flex-col items-center gap-1.5 rounded-lg py-3 text-sm font-medium transition-all border",
                         sportType === opt.value
-                          ? "bg-accent/10 border-accent/30 text-accent"
+                          ? "bg-accent/10 border-accent/30 text-accent border-t-2 border-t-accent/50"
                           : "glass-surface text-muted-foreground hover:text-foreground hover:border-border"
                       )}
                     >
-                      <span className="flex items-center gap-2">
-                        <opt.icon className="h-4 w-4" />
-                        {opt.label}
-                      </span>
+                      <div className={cn(
+                        "h-10 w-10 rounded-xl flex items-center justify-center transition-colors",
+                        sportType === opt.value ? "bg-accent/15" : "bg-muted/50"
+                      )}>
+                        <opt.icon className="h-5 w-5" />
+                      </div>
+                      {opt.label}
                       <span className="text-[10px] text-muted-foreground font-normal">{opt.desc}</span>
                     </button>
                   ))}

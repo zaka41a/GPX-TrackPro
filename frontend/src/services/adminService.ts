@@ -59,6 +59,10 @@ export const adminService = {
     await apiFetch<{ message: string }>(`/api/admin/users/${userId}/reject`, { method: "PATCH" }, true);
   },
 
+  async deleteUser(userId: string): Promise<void> {
+    await apiFetch<{ message: string }>(`/api/admin/users/${userId}`, { method: "DELETE" }, true);
+  },
+
   async getActionTimeline(): Promise<AdminAction[]> {
     const items = await apiFetch<BackendAction[]>("/api/admin/actions", undefined, true);
     return items.map((a) => ({

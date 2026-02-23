@@ -1,73 +1,98 @@
-# Welcome to your Lovable project
+# Frontend (React + TypeScript + Vite)
 
-## Project info
+## Tech Stack
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+- **React 18** with TypeScript
+- **Vite** — build & dev server
+- **Tailwind CSS** — utility-first styling
+- **shadcn/ui** — UI component library
+- **React Router** — client-side routing
+- **React Query** — server state management
+- **Lucide React** — icon library
 
-## How can I edit this code?
+## Getting Started
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app runs on `http://localhost:5173` by default.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment
 
-**Use GitHub Codespaces**
+Create a `.env.local` file:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```env
+VITE_API_BASE=http://localhost:8080
+```
 
-## What technologies are used for this project?
+## Pages
 
-This project is built with:
+### Public
+| Route | Page |
+|-------|------|
+| `/` | Landing page |
+| `/about` | About page |
+| `/contact` | Contact form |
+| `/register` | User registration |
+| `/login` | Sign in |
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### User (requires approved account)
+| Route | Page |
+|-------|------|
+| `/dashboard` | User dashboard with activity overview |
+| `/upload` | GPX file upload |
+| `/activities` | Activities archive list |
+| `/activity/:id` | Activity detail with map, charts & stats |
+| `/statistics` | Global statistics & trends |
+| `/profile` | Athlete profile settings |
+| `/community` | Community feed — posts, reactions, comments |
+| `/community/:id` | Single post view with comment thread |
+| `/messages` | Direct messaging — 1-to-1 private conversations |
 
-## How can I deploy this project?
+### Admin
+| Route | Page |
+|-------|------|
+| `/admin` | Admin dashboard — user management & community moderation |
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Features
 
-## Can I connect a custom domain to my Lovable project?
+### Community Space
+- Post feed with cursor-based infinite scroll
+- Pinned posts (admin) displayed at top
+- Multi-reactions per post (thumbs up, fire, muscle, trophy)
+- Comment threads on each post
+- Author & admin can delete posts/comments
+- Ban check — banned users see a message instead of the feed
 
-Yes, you can!
+### Direct Messaging
+- Two-panel responsive layout (conversation list + chat thread)
+- Real-time polling every 5 seconds for new messages
+- Unread message count badge in sidebar navigation
+- User picker to start new conversations
+- Chat bubbles with sender/receiver styling
+- Mark-as-read on conversation open
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Admin Moderation
+- Community Moderation section in Admin Dashboard
+- Banned users table with unban action
+- Quick link to community feed
+- Pin/unpin posts from the feed
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Project Structure
+
+```
+src/
+  components/     # Reusable UI components
+  hooks/          # Custom React hooks (useAuth, etc.)
+  layouts/        # AppShell layout with sidebar
+  lib/            # Utility functions
+  pages/          # Route page components
+  services/       # API service layer
+    api.ts            # Base fetch wrapper with auth
+    adminService.ts   # Admin API calls
+    communityService.ts # Community posts, comments, reactions, bans
+    messagingService.ts # DM conversations & messages
+  types/          # TypeScript interfaces
+```
