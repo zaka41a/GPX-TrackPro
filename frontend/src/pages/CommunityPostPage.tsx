@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/layouts/AppShell";
@@ -37,7 +37,7 @@ export default function CommunityPostPage() {
   const isAdmin = user?.role === "admin";
   const currentUserId = user?.id ? Number(user.id) : 0;
 
-  const fetchPost = async () => {
+  const fetchPost = useCallback(async () => {
     if (!id) return;
     try {
       const data = await communityService.getPost(Number(id));
@@ -48,11 +48,11 @@ export default function CommunityPostPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
   useEffect(() => {
     fetchPost();
-  }, [id]);
+  }, [fetchPost]);
 
   const handleReaction = async (emoji: string) => {
     if (!post) return;

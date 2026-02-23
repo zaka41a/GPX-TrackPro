@@ -46,8 +46,8 @@ export default function CommunityFeedPage() {
         setPosts(result.posts);
       }
       setNextCursor(result.nextCursor);
-    } catch (err: any) {
-      if (err?.code === "banned") {
+    } catch (err: unknown) {
+      if (err instanceof Error && "code" in err && (err as { code: string }).code === "banned") {
         setBanned(true);
       }
     } finally {
