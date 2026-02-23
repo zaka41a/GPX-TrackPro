@@ -9,6 +9,7 @@ type CommunityPost struct {
 	ID           int64     `json:"id"`
 	AuthorID     int64     `json:"authorId"`
 	AuthorName   string    `json:"authorName"`
+	AuthorAvatar string    `json:"authorAvatar"`
 	ActivityID   *int64    `json:"activityId,omitempty"`
 	Content      string    `json:"content"`
 	Pinned       bool      `json:"pinned"`
@@ -25,12 +26,13 @@ type ReactionCount struct {
 }
 
 type CommunityComment struct {
-	ID         int64     `json:"id"`
-	PostID     int64     `json:"postId"`
-	AuthorID   int64     `json:"authorId"`
-	AuthorName string    `json:"authorName"`
-	Content    string    `json:"content"`
-	CreatedAt  time.Time `json:"createdAt"`
+	ID           int64     `json:"id"`
+	PostID       int64     `json:"postId"`
+	AuthorID     int64     `json:"authorId"`
+	AuthorName   string    `json:"authorName"`
+	AuthorAvatar string    `json:"authorAvatar"`
+	Content      string    `json:"content"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 type CommunityReaction struct {
@@ -71,6 +73,7 @@ func (s *Store) CreatePost(ctx context.Context, authorID int64, content string, 
 func (s *Store) GetPost(ctx context.Context, id int64) (CommunityPost, error) {
 	query := `
 		SELECT p.id, p.author_id, CONCAT(u.first_name, ' ', u.last_name) AS author_name,
+			u.avatar_url,
 			p.activity_id, p.content, p.pinned, p.created_at, p.updated_at,
 			(SELECT COUNT(*) FROM community_comments WHERE post_id = p.id) AS comment_count
 		FROM community_posts p
@@ -79,7 +82,7 @@ func (s *Store) GetPost(ctx context.Context, id int64) (CommunityPost, error) {
 	`
 	var p CommunityPost
 	err := s.pool.QueryRow(ctx, query, id).Scan(
-		&p.ID, &p.AuthorID, &p.AuthorName, &p.ActivityID, &p.Content,
+		&p.ID, &p.AuthorID, &p.AuthorName, &p.AuthorAvatar, &p.ActivityID, &p.Content,
 		&p.Pinned, &p.CreatedAt, &p.UpdatedAt, &p.CommentCount,
 	)
 	if err != nil {
@@ -101,6 +104,7 @@ func (s *Store) ListPosts(ctx context.Context, cursor *int64, limit int, current
 
 	query := `
 		SELECT p.id, p.author_id, CONCAT(u.first_name, ' ', u.last_name) AS author_name,
+			u.avatar_url,
 			p.activity_id, p.content, p.pinned, p.created_at, p.updated_at,
 			(SELECT COUNT(*) FROM community_comments WHERE post_id = p.id) AS comment_count
 		FROM community_posts p
@@ -128,7 +132,7 @@ func (s *Store) ListPosts(ctx context.Context, cursor *int64, limit int, current
 	for rows.Next() {
 		var p CommunityPost
 		if err := rows.Scan(
-			&p.ID, &p.AuthorID, &p.AuthorName, &p.ActivityID, &p.Content,
+			&p.ID, &p.AuthorID, &p.AuthorName, &p.AuthorAvatar, &p.ActivityID, &p.Content,
 			&p.Pinned, &p.CreatedAt, &p.UpdatedAt, &p.CommentCount,
 		); err != nil {
 			return PostListResult{}, err
@@ -219,7 +223,7 @@ func (s *Store) CreateComment(ctx context.Context, postID, authorID int64, conte
 func (s *Store) ListComments(ctx context.Context, postID int64) ([]CommunityComment, error) {
 	query := `
 		SELECT c.id, c.post_id, c.author_id, CONCAT(u.first_name, ' ', u.last_name) AS author_name,
-			c.content, c.created_at
+			u.avatar_url, c.content, c.created_at
 		FROM community_comments c
 		JOIN users u ON u.id = c.author_id
 		WHERE c.post_id = $1
@@ -234,7 +238,7 @@ func (s *Store) ListComments(ctx context.Context, postID int64) ([]CommunityComm
 	comments := make([]CommunityComment, 0)
 	for rows.Next() {
 		var c CommunityComment
-		if err := rows.Scan(&c.ID, &c.PostID, &c.AuthorID, &c.AuthorName, &c.Content, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.PostID, &c.AuthorID, &c.AuthorName, &c.AuthorAvatar, &c.Content, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		comments = append(comments, c)

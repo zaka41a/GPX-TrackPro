@@ -6,7 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { DMConversation, DMMessage, User } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, Send, ArrowLeft, Plus, Loader2, Search } from "lucide-react";
+import { UserAvatar } from "@/components/UserAvatar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { MessageCircle, Send, ArrowLeft, Plus, Loader2, Search, Trash2, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function timeAgo(dateStr: string): string {
@@ -38,7 +40,12 @@ export default function MessagingPage() {
   const [userSearch, setUserSearch] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
 
+  const [showMenu, setShowMenu] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchConversations = useCallback(async () => {
@@ -146,6 +153,43 @@ export default function MessagingPage() {
     }
   };
 
+  const handleClearConversation = async () => {
+    if (!selectedConvo) return;
+    try {
+      await messagingService.clearConversation(selectedConvo.id);
+      setMessages([]);
+      setConfirmClear(false);
+      fetchConversations();
+    } catch {
+      // silently fail
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!selectedConvo) return;
+    try {
+      await messagingService.deleteConversation(selectedConvo.id);
+      setSelectedConvo(null);
+      setMessages([]);
+      setConfirmDelete(false);
+      fetchConversations();
+    } catch {
+      // silently fail
+    }
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showMenu]);
+
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
@@ -201,9 +245,7 @@ export default function MessagingPage() {
                         selectedConvo?.id === convo.id && "bg-muted"
                       )}
                     >
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-white">{getInitials(convo.otherUserName)}</span>
-                      </div>
+                      <UserAvatar name={convo.otherUserName} avatarUrl={convo.otherUserAvatar} size="lg" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium text-foreground truncate">{convo.otherUserName}</p>
@@ -263,9 +305,7 @@ export default function MessagingPage() {
                           onClick={() => handleStartConvoWithUser(Number(u.id))}
                           className="w-full flex items-center gap-3 p-3.5 text-left hover:bg-muted/50 transition-colors"
                         >
-                          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-bold text-white">{getInitials(u.name)}</span>
-                          </div>
+                          <UserAvatar name={u.name} avatarUrl={u.avatarUrl} />
                           <div>
                             <p className="text-sm font-medium text-foreground">{u.name}</p>
                             <p className="text-xs text-muted-foreground">{u.email}</p>
@@ -282,10 +322,29 @@ export default function MessagingPage() {
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0 md:hidden" onClick={() => setSelectedConvo(null)}>
                       <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-bold text-white">{getInitials(selectedConvo.otherUserName)}</span>
+                    <UserAvatar name={selectedConvo.otherUserName} avatarUrl={selectedConvo.otherUserAvatar} />
+                    <p className="font-semibold text-foreground text-sm flex-1">{selectedConvo.otherUserName}</p>
+                    <div className="relative" ref={menuRef}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setShowMenu(!showMenu)}>
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                      {showMenu && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-popover border border-border rounded-lg shadow-lg z-50 py-1">
+                          <button
+                            className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-2"
+                            onClick={() => { setShowMenu(false); setConfirmClear(true); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Clear messages
+                          </button>
+                          <button
+                            className="w-full px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
+                            onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete conversation
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <p className="font-semibold text-foreground text-sm">{selectedConvo.otherUserName}</p>
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -353,6 +412,24 @@ export default function MessagingPage() {
             </div>
           </div>
         </div>
+        <ConfirmDialog
+          open={confirmClear}
+          onOpenChange={() => setConfirmClear(false)}
+          title="Clear Messages"
+          description={`Are you sure you want to clear all messages with ${selectedConvo?.otherUserName}? This cannot be undone.`}
+          confirmLabel="Clear"
+          variant="destructive"
+          onConfirm={handleClearConversation}
+        />
+        <ConfirmDialog
+          open={confirmDelete}
+          onOpenChange={() => setConfirmDelete(false)}
+          title="Delete Conversation"
+          description={`Are you sure you want to delete your conversation with ${selectedConvo?.otherUserName}? All messages will be permanently removed.`}
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={handleDeleteConversation}
+        />
       </PageTransition>
     </AppShell>
   );

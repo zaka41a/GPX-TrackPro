@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 import { User, LoginCredentials, RegisterData } from "@/types";
 import { authService } from "@/services/authService";
+import { profileService } from "@/services/profileService";
+import { apiFetch } from "@/services/api";
 
 interface AuthContextType {
   user: User | null;
@@ -22,7 +24,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authService
       .getMe()
       .then((u) => {
-        if (u) setUser(u);
+        if (u) {
+          setUser(u);
+          // Sync localStorage avatar to backend if backend has none
+          const localProfile = profileService.getProfile();
+          if (localProfile.avatarUrl && !u.avatarUrl) {
+            apiFetch("/api/users/avatar", {
+              method: "PUT",
+              body: JSON.stringify({ avatarUrl: localProfile.avatarUrl }),
+            }, true).catch(() => {});
+          }
+        }
       })
       .catch(() => {
         setUser(null);

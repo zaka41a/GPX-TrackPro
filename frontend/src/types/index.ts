@@ -8,6 +8,7 @@ export interface User {
   email: string;
   role: UserRole;
   status: AccountStatus;
+  avatarUrl?: string;
   createdAt: string;
 }
 
@@ -69,6 +70,7 @@ export interface CommunityPost {
   id: number;
   authorId: number;
   authorName: string;
+  authorAvatar?: string;
   content: string;
   activityId?: number;
   pinned: boolean;
@@ -83,6 +85,7 @@ export interface CommunityComment {
   postId: number;
   authorId: number;
   authorName: string;
+  authorAvatar?: string;
   content: string;
   createdAt: string;
 }
@@ -101,6 +104,7 @@ export interface DMConversation {
   id: number;
   otherUserId: number;
   otherUserName: string;
+  otherUserAvatar?: string;
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;

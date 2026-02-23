@@ -166,6 +166,61 @@ func (h *Handler) messagingUnreadCount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int{"count": count})
 }
 
+func (h *Handler) messagingClearConversation(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireApprovedUser(w, r)
+	if !ok {
+		return
+	}
+
+	convoID, err := parseConversationID(r.URL.Path, "/clear")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid conversation id")
+		return
+	}
+
+	isParticipant, err := h.store.IsConversationParticipant(r.Context(), convoID, user.ID)
+	if err != nil || !isParticipant {
+		writeErrCode(w, http.StatusForbidden, "forbidden", "not a participant of this conversation")
+		return
+	}
+
+	if err := h.store.ClearConversation(r.Context(), convoID); err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to clear conversation")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "conversation cleared"})
+}
+
+func (h *Handler) messagingDeleteConversation(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireApprovedUser(w, r)
+	if !ok {
+		return
+	}
+
+	convoID, err := parseConversationID(r.URL.Path, "")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid conversation id")
+		return
+	}
+
+	isParticipant, err := h.store.IsConversationParticipant(r.Context(), convoID, user.ID)
+	if err != nil || !isParticipant {
+		writeErrCode(w, http.StatusForbidden, "forbidden", "not a participant of this conversation")
+		return
+	}
+
+	// Delete messages first (cascade should handle this, but be explicit)
+	if err := h.store.ClearConversation(r.Context(), convoID); err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to clear conversation")
+		return
+	}
+	if err := h.store.DeleteConversation(r.Context(), convoID); err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to delete conversation")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "conversation deleted"})
+}
+
 // parseConversationID extracts the conversation ID from paths like:
 // /api/messages/conversations/{id}/messages
 // /api/messages/conversations/{id}/read

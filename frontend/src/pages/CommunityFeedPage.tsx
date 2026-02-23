@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { CommunityPost } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Users, Pin, Send, MessageSquare, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -192,11 +193,7 @@ export default function CommunityFeedPage() {
                       {/* Post header */}
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-bold text-white">
-                              {post.authorName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
-                            </span>
-                          </div>
+                          <UserAvatar name={post.authorName} avatarUrl={post.authorAvatar} />
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-semibold text-foreground">{post.authorName}</p>

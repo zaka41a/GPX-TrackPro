@@ -8,6 +8,7 @@ type BackendUser = {
   email: string;
   role: string;
   status: string;
+  avatarUrl: string;
   createdAt: string;
 };
 
@@ -47,6 +48,18 @@ export const messagingService = {
     }, true);
   },
 
+  async clearConversation(conversationId: number): Promise<void> {
+    await apiFetch<{ message: string }>(`/api/messages/conversations/${conversationId}/clear`, {
+      method: "POST",
+    }, true);
+  },
+
+  async deleteConversation(conversationId: number): Promise<void> {
+    await apiFetch<{ message: string }>(`/api/messages/conversations/${conversationId}`, {
+      method: "DELETE",
+    }, true);
+  },
+
   async getUnreadCount(): Promise<number> {
     const data = await apiFetch<{ count: number }>("/api/messages/unread-count", undefined, true);
     return data.count;
@@ -60,6 +73,7 @@ export const messagingService = {
       email: u.email,
       role: u.role as User["role"],
       status: u.status as User["status"],
+      avatarUrl: u.avatarUrl || "",
       createdAt: u.createdAt,
     }));
   },

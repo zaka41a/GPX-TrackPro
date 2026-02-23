@@ -60,6 +60,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /api/activities/", h.getByID)
 
 	mux.HandleFunc("GET /api/users/approved", h.listApprovedUsers)
+	mux.HandleFunc("PUT /api/users/avatar", h.updateAvatar)
 
 	// Community
 	mux.HandleFunc("GET /api/community/posts", h.communityListPosts)
@@ -82,6 +83,8 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /api/messages/conversations/{id}/messages", h.messagingListMessages)
 	mux.HandleFunc("POST /api/messages/conversations/{id}/messages", h.messagingSendMessage)
 	mux.HandleFunc("POST /api/messages/conversations/{id}/read", h.messagingMarkRead)
+	mux.HandleFunc("POST /api/messages/conversations/{id}/clear", h.messagingClearConversation)
+	mux.HandleFunc("DELETE /api/messages/conversations/{id}", h.messagingDeleteConversation)
 	mux.HandleFunc("GET /api/messages/unread-count", h.messagingUnreadCount)
 
 	return cors(mux)
@@ -353,6 +356,25 @@ func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, activity)
+}
+
+func (h *Handler) updateAvatar(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireApprovedUser(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		AvatarURL string `json:"avatarUrl"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := h.store.UpdateUserAvatar(r.Context(), user.ID, req.AvatarURL); err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to update avatar")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "avatar updated"})
 }
 
 func (h *Handler) listApprovedUsers(w http.ResponseWriter, r *http.Request) {

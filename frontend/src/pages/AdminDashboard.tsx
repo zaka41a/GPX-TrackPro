@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Users, UserCheck, UserX, Clock, CheckCircle, XCircle, Trash2, Shield, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -147,9 +148,7 @@ export default function AdminDashboard() {
                         <TableRow key={u.id} className="hover:bg-accent/5 transition-colors">
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shrink-0">
-                                <span className="text-[11px] font-bold text-white">{getInitials(u.name)}</span>
-                              </div>
+                              <UserAvatar name={u.name} avatarUrl={u.avatarUrl} size="sm" />
                               <span className="font-medium text-foreground">{u.name}</span>
                             </div>
                           </TableCell>
@@ -185,9 +184,7 @@ export default function AdminDashboard() {
                     <div key={u.id} className="glass-card rounded-xl p-4 accent-line-left">
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shrink-0">
-                            <span className="text-[11px] font-bold text-white">{getInitials(u.name)}</span>
-                          </div>
+                          <UserAvatar name={u.name} avatarUrl={u.avatarUrl} size="sm" />
                           <div className="min-w-0">
                             <p className="font-medium text-sm text-foreground truncate">{u.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{u.email}</p>

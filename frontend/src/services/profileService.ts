@@ -1,4 +1,5 @@
 import { AthleteProfile } from "@/types";
+import { apiFetch } from "./api";
 
 const STORAGE_PREFIX = "gpx_athlete_profile_";
 
@@ -46,5 +47,10 @@ export const profileService = {
 
   saveProfile(profile: AthleteProfile): void {
     localStorage.setItem(getStorageKey(), JSON.stringify(profile));
+    // Sync avatar to backend so other users can see it
+    apiFetch("/api/users/avatar", {
+      method: "PUT",
+      body: JSON.stringify({ avatarUrl: profile.avatarUrl || "" }),
+    }, true).catch(() => {});
   },
 };

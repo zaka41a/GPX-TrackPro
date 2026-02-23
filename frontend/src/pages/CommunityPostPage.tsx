@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { CommunityPost, CommunityComment } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/UserAvatar";
 import { ArrowLeft, Pin, Send, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -127,9 +128,7 @@ export default function CommunityPostPage() {
               <div className={cn("glass-card rounded-xl p-6", post.pinned && "ring-1 ring-accent/30")}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-white">{getInitials(post.authorName)}</span>
-                    </div>
+                    <UserAvatar name={post.authorName} avatarUrl={post.authorAvatar} size="lg" />
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-foreground">{post.authorName}</p>
@@ -186,9 +185,7 @@ export default function CommunityPostPage() {
                   <div key={comment.id} className="glass-surface rounded-lg p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-accent/80 to-accent/40 flex items-center justify-center shrink-0">
-                          <span className="text-[10px] font-bold text-white">{getInitials(comment.authorName)}</span>
-                        </div>
+                        <UserAvatar name={comment.authorName} avatarUrl={comment.authorAvatar} size="sm" />
                         <div>
                           <p className="text-sm font-medium text-foreground">{comment.authorName}</p>
                           <p className="text-[11px] text-muted-foreground">{timeAgo(comment.createdAt)}</p>

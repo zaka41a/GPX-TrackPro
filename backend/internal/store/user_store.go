@@ -14,6 +14,7 @@ type User struct {
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
 	Status       string    `json:"status"`
+	AvatarURL    string    `json:"avatarUrl"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
@@ -31,11 +32,11 @@ func (s *Store) CreateUser(ctx context.Context, firstName, lastName, email, pass
 	query := `
 		INSERT INTO users (first_name, last_name, email, password_hash, role, status)
 		VALUES ($1,$2,LOWER($3),$4,'user','pending')
-		RETURNING id, first_name, last_name, email, role::text, status::text, created_at
+		RETURNING id, first_name, last_name, email, role::text, status::text, avatar_url, created_at
 	`
 	var u User
 	err := s.pool.QueryRow(ctx, query, strings.TrimSpace(firstName), strings.TrimSpace(lastName), strings.TrimSpace(email), passwordHash).Scan(
-		&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Role, &u.Status, &u.CreatedAt,
+		&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Role, &u.Status, &u.AvatarURL, &u.CreatedAt,
 	)
 	if err != nil {
 		return User{}, err
@@ -45,12 +46,12 @@ func (s *Store) CreateUser(ctx context.Context, firstName, lastName, email, pass
 
 func (s *Store) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	query := `
-		SELECT id, first_name, last_name, email, password_hash, role::text, status::text, created_at
+		SELECT id, first_name, last_name, email, password_hash, role::text, status::text, avatar_url, created_at
 		FROM users WHERE email = LOWER($1)
 	`
 	var u User
 	err := s.pool.QueryRow(ctx, query, strings.TrimSpace(email)).Scan(
-		&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.PasswordHash, &u.Role, &u.Status, &u.CreatedAt,
+		&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.PasswordHash, &u.Role, &u.Status, &u.AvatarURL, &u.CreatedAt,
 	)
 	if err != nil {
 		return User{}, err
@@ -60,12 +61,12 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (User, error) 
 
 func (s *Store) GetUserByID(ctx context.Context, id int64) (User, error) {
 	query := `
-		SELECT id, first_name, last_name, email, password_hash, role::text, status::text, created_at
+		SELECT id, first_name, last_name, email, password_hash, role::text, status::text, avatar_url, created_at
 		FROM users WHERE id = $1
 	`
 	var u User
 	err := s.pool.QueryRow(ctx, query, id).Scan(
-		&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.PasswordHash, &u.Role, &u.Status, &u.CreatedAt,
+		&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.PasswordHash, &u.Role, &u.Status, &u.AvatarURL, &u.CreatedAt,
 	)
 	if err != nil {
 		return User{}, err
@@ -75,7 +76,7 @@ func (s *Store) GetUserByID(ctx context.Context, id int64) (User, error) {
 
 func (s *Store) ListUsers(ctx context.Context, search, status string) ([]User, error) {
 	base := `
-		SELECT id, first_name, last_name, email, role::text, status::text, created_at
+		SELECT id, first_name, last_name, email, role::text, status::text, avatar_url, created_at
 		FROM users
 	`
 	conditions := make([]string, 0)
@@ -108,12 +109,17 @@ func (s *Store) ListUsers(ctx context.Context, search, status string) ([]User, e
 	list := make([]User, 0)
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Role, &u.Status, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Role, &u.Status, &u.AvatarURL, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		list = append(list, u)
 	}
 	return list, rows.Err()
+}
+
+func (s *Store) UpdateUserAvatar(ctx context.Context, userID int64, avatarURL string) error {
+	_, err := s.pool.Exec(ctx, `UPDATE users SET avatar_url = $1 WHERE id = $2`, avatarURL, userID)
+	return err
 }
 
 func (s *Store) UpdateUserStatus(ctx context.Context, adminID, targetUserID int64, status string) error {
@@ -187,7 +193,7 @@ func (s *Store) DeleteUser(ctx context.Context, userID int64) error {
 
 func (s *Store) ListApprovedUsers(ctx context.Context) ([]User, error) {
 	query := `
-		SELECT id, first_name, last_name, email, role::text, status::text, created_at
+		SELECT id, first_name, last_name, email, role::text, status::text, avatar_url, created_at
 		FROM users
 		WHERE status::text = 'approved'
 		ORDER BY first_name, last_name
@@ -201,7 +207,7 @@ func (s *Store) ListApprovedUsers(ctx context.Context) ([]User, error) {
 	list := make([]User, 0)
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Role, &u.Status, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Role, &u.Status, &u.AvatarURL, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		list = append(list, u)

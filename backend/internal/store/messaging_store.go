@@ -6,14 +6,15 @@ import (
 )
 
 type DMConversation struct {
-	ID            int64     `json:"id"`
-	UserAID       int64     `json:"userAId"`
-	UserBID       int64     `json:"userBId"`
-	OtherUserID   int64     `json:"otherUserId"`
-	OtherUserName string    `json:"otherUserName"`
-	LastMessage   string    `json:"lastMessage"`
-	LastMessageAt time.Time `json:"lastMessageAt"`
-	UnreadCount   int       `json:"unreadCount"`
+	ID              int64     `json:"id"`
+	UserAID         int64     `json:"userAId"`
+	UserBID         int64     `json:"userBId"`
+	OtherUserID     int64     `json:"otherUserId"`
+	OtherUserName   string    `json:"otherUserName"`
+	OtherUserAvatar string    `json:"otherUserAvatar"`
+	LastMessage     string    `json:"lastMessage"`
+	LastMessageAt   time.Time `json:"lastMessageAt"`
+	UnreadCount     int       `json:"unreadCount"`
 }
 
 type DMMessage struct {
@@ -52,6 +53,10 @@ func (s *Store) ListConversations(ctx context.Context, userID int64) ([]DMConver
 				THEN CONCAT(ub.first_name, ' ', ub.last_name)
 				ELSE CONCAT(ua.first_name, ' ', ua.last_name)
 			END AS other_user_name,
+			CASE WHEN c.user_a_id = $1
+				THEN ub.avatar_url
+				ELSE ua.avatar_url
+			END AS other_user_avatar,
 			COALESCE(
 				(SELECT content FROM dm_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1),
 				''
@@ -76,7 +81,7 @@ func (s *Store) ListConversations(ctx context.Context, userID int64) ([]DMConver
 		var c DMConversation
 		if err := rows.Scan(
 			&c.ID, &c.UserAID, &c.UserBID, &c.LastMessageAt,
-			&c.OtherUserID, &c.OtherUserName, &c.LastMessage, &c.UnreadCount,
+			&c.OtherUserID, &c.OtherUserName, &c.OtherUserAvatar, &c.LastMessage, &c.UnreadCount,
 		); err != nil {
 			return nil, err
 		}
@@ -189,6 +194,22 @@ func (s *Store) UnreadCount(ctx context.Context, userID int64) (int, error) {
 	var count int
 	err := s.pool.QueryRow(ctx, query, userID).Scan(&count)
 	return count, err
+}
+
+func (s *Store) ClearConversation(ctx context.Context, conversationID int64) error {
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM dm_messages WHERE conversation_id = $1`,
+		conversationID,
+	)
+	return err
+}
+
+func (s *Store) DeleteConversation(ctx context.Context, conversationID int64) error {
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM dm_conversations WHERE id = $1`,
+		conversationID,
+	)
+	return err
 }
 
 func (s *Store) IsConversationParticipant(ctx context.Context, conversationID, userID int64) (bool, error) {
