@@ -8,7 +8,7 @@ import { CommunityPost, CommunityComment } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/UserAvatar";
-import { ArrowLeft, Pin, Send, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Pin, Send, Trash2, Loader2, ShieldOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const REACTION_EMOJIS = ["\u{1F44D}", "\u{1F525}", "\u{1F4AA}", "\u{1F3C6}"];
@@ -99,6 +99,17 @@ export default function CommunityPostPage() {
     }
   };
 
+  const handleBan = async (authorId: number, authorName: string) => {
+    const reason = prompt(`Ban reason for ${authorName} (optional):`);
+    if (reason === null) return;
+    try {
+      await communityService.banUser(authorId, reason.trim());
+      navigate("/community");
+    } catch {
+      // silently fail
+    }
+  };
+
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
@@ -141,11 +152,18 @@ export default function CommunityPostPage() {
                       <p className="text-xs text-muted-foreground">{timeAgo(post.createdAt)}</p>
                     </div>
                   </div>
-                  {(post.authorId === currentUserId || isAdmin) && (
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={handleDeletePost}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {isAdmin && post.authorId !== currentUserId && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleBan(post.authorId, post.authorName)} title="Ban user">
+                        <ShieldOff className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {(post.authorId === currentUserId || isAdmin) && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={handleDeletePost}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <p className="text-foreground whitespace-pre-wrap mb-5">{post.content}</p>

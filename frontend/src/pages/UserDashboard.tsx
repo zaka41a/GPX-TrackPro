@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/layouts/AppShell";
@@ -6,7 +5,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { KpiCard } from "@/components/KpiCard";
 import { SkeletonKpiRow, SkeletonActivityList } from "@/components/SkeletonCards";
 import { useAuth } from "@/hooks/useAuth";
-import { activityService } from "@/services/activityService";
+import { useActivities } from "@/hooks/useActivities";
 import { Activity } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,12 +28,7 @@ function formatRelativeDate(dateStr: string): string {
 
 export default function UserDashboard() {
   const { user } = useAuth();
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    activityService.getActivities().then((a) => { setActivities(a); setLoading(false); });
-  }, []);
+  const { data: activities = [], isLoading: loading } = useActivities();
 
   const totalDistance = activities.reduce((s, a) => s + a.distance, 0);
   const totalDuration = activities.reduce((s, a) => s + a.duration, 0);

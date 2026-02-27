@@ -45,7 +45,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = false
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
-    throw await parseApiError(res);
+    const err = await parseApiError(res);
+    if (res.status === 402) {
+      err.code = "SUBSCRIPTION_REQUIRED";
+    }
+    throw err;
   }
 
   if (res.status === 204) {

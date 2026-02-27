@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -8,7 +9,7 @@ import (
 )
 
 func (h *Handler) messagingListConversations(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -22,7 +23,7 @@ func (h *Handler) messagingListConversations(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) messagingCreateConversation(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -48,7 +49,7 @@ func (h *Handler) messagingCreateConversation(w http.ResponseWriter, r *http.Req
 }
 
 func (h *Handler) messagingListMessages(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -81,7 +82,7 @@ func (h *Handler) messagingListMessages(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	result, err := h.store.ListMessages(r.Context(), convoID, cursor, limit)
+	result, err := h.store.ListMessages(r.Context(), convoID, user.ID, cursor, limit)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to list messages")
 		return
@@ -90,7 +91,7 @@ func (h *Handler) messagingListMessages(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) messagingSendMessage(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -118,6 +119,10 @@ func (h *Handler) messagingSendMessage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "content is required")
 		return
 	}
+	if len(req.Content) > 2000 {
+		writeErr(w, http.StatusBadRequest, "message content must be at most 2000 characters")
+		return
+	}
 
 	msg, err := h.store.SendMessage(r.Context(), convoID, user.ID, req.Content)
 	if err != nil {
@@ -125,10 +130,27 @@ func (h *Handler) messagingSendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, msg)
+
+	// Notify the recipient asynchronously — failure is non-fatal.
+	go func() {
+		recipientID, err := h.store.GetConversationOtherUserID(context.Background(), convoID, user.ID)
+		if err != nil {
+			return
+		}
+		senderName := strings.TrimSpace(user.FirstName + " " + user.LastName)
+		preview := req.Content
+		if len(preview) > 100 {
+			preview = preview[:100] + "…"
+		}
+		_ = h.store.CreateNotification(context.Background(), recipientID,
+			"New message from "+senderName,
+			preview,
+		)
+	}()
 }
 
 func (h *Handler) messagingMarkRead(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -153,7 +175,7 @@ func (h *Handler) messagingMarkRead(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) messagingUnreadCount(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -167,7 +189,7 @@ func (h *Handler) messagingUnreadCount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) messagingClearConversation(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -184,7 +206,7 @@ func (h *Handler) messagingClearConversation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.store.ClearConversation(r.Context(), convoID); err != nil {
+	if err := h.store.ClearConversation(r.Context(), convoID, user.ID); err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to clear conversation")
 		return
 	}
@@ -192,7 +214,7 @@ func (h *Handler) messagingClearConversation(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) messagingDeleteConversation(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -209,12 +231,7 @@ func (h *Handler) messagingDeleteConversation(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Delete messages first (cascade should handle this, but be explicit)
-	if err := h.store.ClearConversation(r.Context(), convoID); err != nil {
-		writeErr(w, http.StatusInternalServerError, "failed to clear conversation")
-		return
-	}
-	if err := h.store.DeleteConversation(r.Context(), convoID); err != nil {
+	if err := h.store.DeleteConversation(r.Context(), convoID, user.ID); err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to delete conversation")
 		return
 	}

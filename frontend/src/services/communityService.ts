@@ -2,9 +2,10 @@ import { CommunityPost, CommunityComment, CommunityBan } from "@/types";
 import { apiFetch } from "./api";
 
 export const communityService = {
-  async listPosts(cursor?: number): Promise<{ posts: CommunityPost[]; nextCursor: number | null }> {
+  async listPosts(cursor?: number, search?: string): Promise<{ posts: CommunityPost[]; nextCursor: number | null }> {
     const params = new URLSearchParams();
     if (cursor) params.set("cursor", String(cursor));
+    if (search) params.set("q", search);
     const q = params.toString();
     return apiFetch<{ posts: CommunityPost[]; nextCursor: number | null }>(
       `/api/community/posts${q ? `?${q}` : ""}`,

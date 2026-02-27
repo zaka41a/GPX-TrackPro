@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { PageTransition } from "@/components/PageTransition";
 import { PublicLayout } from "@/components/PublicLayout";
 import { Eye, EyeOff, AlertCircle, Clock, ArrowRight, Users, Globe, TrendingUp } from "lucide-react";
@@ -7,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { registerSchema, RegisterFormData } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -39,31 +42,27 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 export default function RegisterPage() {
-  const { register } = useAuth();
-  const navigate = useNavigate();
+  const { register: authRegister } = useAuth();
   const [showPw, setShowPw] = useState(false);
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [registered, setRegistered] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const name = fd.get("name") as string;
-    const email = fd.get("email") as string;
-    const pw = fd.get("password") as string;
-    if (!name || !email || !pw) { setError("All fields are required."); setLoading(false); return; }
-    if (pw.length < 8) { setError("Password must be at least 8 characters."); setLoading(false); return; }
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormData>({ resolver: zodResolver(registerSchema) });
+
+  const password = watch("password", "");
+
+  const onSubmit = async (data: RegisterFormData) => {
+    setServerError(null);
     try {
-      await register({ name, email, password: pw });
+      await authRegister({ name: data.name, email: data.email, password: data.password });
       setRegistered(true);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Registration failed");
-    } finally {
-      setLoading(false);
+      setServerError(e instanceof Error ? e.message : "Registration failed");
     }
   };
 
@@ -141,33 +140,32 @@ export default function RegisterPage() {
                   <h1 className="text-2xl font-bold mb-1 text-foreground">Create Account</h1>
                   <p className="text-sm text-muted-foreground mb-6">Join GPX TrackPro and start tracking your performance.</p>
 
-                  {error && (
+                  {serverError && (
                     <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
-                      <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+                      <AlertCircle className="h-4 w-4 shrink-0" /> {serverError}
                     </div>
                   )}
 
-                  <form onSubmit={handleSubmit} className="space-y-4">
+                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div>
                       <Label htmlFor="name" className="text-foreground text-sm font-medium">Full Name <span className="text-destructive">*</span></Label>
-                      <Input id="name" name="name" required placeholder="John Doe" className={inputClass} />
+                      <Input id="name" placeholder="John Doe" className={inputClass} {...register("name")} />
+                      {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
                     </div>
                     <div>
                       <Label htmlFor="email" className="text-foreground text-sm font-medium">Email <span className="text-destructive">*</span></Label>
-                      <Input id="email" name="email" type="email" required placeholder="you@example.com" className={inputClass} />
+                      <Input id="email" type="email" placeholder="you@example.com" className={inputClass} {...register("email")} />
+                      {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
                     </div>
                     <div>
                       <Label htmlFor="password" className="text-foreground text-sm font-medium">Password <span className="text-destructive">*</span></Label>
                       <div className="relative mt-1.5">
                         <Input
                           id="password"
-                          name="password"
                           type={showPw ? "text" : "password"}
-                          required
                           placeholder="••••••••"
                           className={`pr-10 ${inputClass}`}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
+                          {...register("password")}
                         />
                         <button
                           type="button"
@@ -179,9 +177,10 @@ export default function RegisterPage() {
                         </button>
                       </div>
                       <PasswordStrength password={password} />
+                      {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
                     </div>
-                    <Button type="submit" disabled={loading} className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90">
-                      {loading ? "Creating..." : "Create Account"} {!loading && <ArrowRight className="h-4 w-4 ml-2" />}
+                    <Button type="submit" disabled={isSubmitting} className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90">
+                      {isSubmitting ? "Creating..." : "Create Account"} {!isSubmitting && <ArrowRight className="h-4 w-4 ml-2" />}
                     </Button>
                   </form>
 

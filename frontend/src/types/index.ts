@@ -9,6 +9,7 @@ export interface User {
   role: UserRole;
   status: AccountStatus;
   avatarUrl?: string;
+  googleEmail?: string;
   createdAt: string;
 }
 

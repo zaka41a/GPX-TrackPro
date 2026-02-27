@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -97,7 +98,7 @@ type PostListResult struct {
 	NextCursor *int64          `json:"nextCursor"`
 }
 
-func (s *Store) ListPosts(ctx context.Context, cursor *int64, limit int, currentUserID int64) (PostListResult, error) {
+func (s *Store) ListPosts(ctx context.Context, cursor *int64, limit int, currentUserID int64, search string) (PostListResult, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
@@ -112,11 +113,20 @@ func (s *Store) ListPosts(ctx context.Context, cursor *int64, limit int, current
 	`
 	args := make([]any, 0)
 	argN := 1
+	conditions := []string{}
 
 	if cursor != nil {
-		query += " WHERE p.id < $" + itoa(argN)
+		conditions = append(conditions, "p.id < $"+itoa(argN))
 		args = append(args, *cursor)
 		argN++
+	}
+	if search != "" {
+		conditions = append(conditions, "p.content ILIKE $"+itoa(argN))
+		args = append(args, "%"+search+"%")
+		argN++
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
 	query += " ORDER BY p.pinned DESC, p.created_at DESC LIMIT $" + itoa(argN)
@@ -228,6 +238,7 @@ func (s *Store) ListComments(ctx context.Context, postID int64) ([]CommunityComm
 		JOIN users u ON u.id = c.author_id
 		WHERE c.post_id = $1
 		ORDER BY c.created_at ASC
+		LIMIT 200
 	`
 	rows, err := s.pool.Query(ctx, query, postID)
 	if err != nil {

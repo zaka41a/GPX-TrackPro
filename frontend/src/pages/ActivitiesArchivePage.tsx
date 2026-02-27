@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/layouts/AppShell";
 import { EmptyState } from "@/components/EmptyState";
 import { SkeletonTable } from "@/components/SkeletonCards";
-import { activityService } from "@/services/activityService";
+import { useActivities } from "@/hooks/useActivities";
 import { Activity } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,14 +29,9 @@ const sportColors: Record<string, { dot: string; border: string; iconBg: string;
 };
 
 export default function ActivitiesArchivePage() {
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: activities = [], isLoading: loading } = useActivities();
   const [sportFilter, setSportFilter] = useState<string>("all");
   const [minDist, setMinDist] = useState("");
-
-  useEffect(() => {
-    activityService.getActivities().then((a) => { setActivities(a); setLoading(false); });
-  }, []);
 
   const filtered = activities.filter((a) => {
     if (sportFilter !== "all" && a.sportType !== sportFilter) return false;

@@ -66,8 +66,8 @@ export const messagingService = {
   },
 
   async listApprovedUsers(): Promise<User[]> {
-    const users = await apiFetch<BackendUser[]>("/api/users/approved", undefined, true);
-    return users.map((u) => ({
+    const result = await apiFetch<{ items: BackendUser[] }>("/api/users/approved?pageSize=100", undefined, true);
+    return result.items.map((u) => ({
       id: String(u.id),
       name: `${u.firstName} ${u.lastName}`.trim(),
       email: u.email,

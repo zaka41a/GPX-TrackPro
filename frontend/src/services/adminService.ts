@@ -22,6 +22,14 @@ type BackendAction = {
   targetEmail: string;
 };
 
+type PaginatedUsers = {
+  items: BackendUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 let cacheUsers: User[] = [];
 
 function mapUser(u: BackendUser): User {
@@ -37,9 +45,13 @@ function mapUser(u: BackendUser): User {
 }
 
 export const adminService = {
-  async getUsers(): Promise<User[]> {
-    const users = await apiFetch<BackendUser[]>("/api/admin/users", undefined, true);
-    cacheUsers = users.map(mapUser);
+  async getUsers(page = 1, pageSize = 50): Promise<User[]> {
+    const result = await apiFetch<PaginatedUsers>(
+      `/api/admin/users?page=${page}&pageSize=${pageSize}`,
+      undefined,
+      true,
+    );
+    cacheUsers = result.items.map(mapUser);
     return cacheUsers;
   },
 

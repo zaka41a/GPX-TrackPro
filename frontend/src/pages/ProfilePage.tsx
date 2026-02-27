@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { AppShell } from "@/layouts/AppShell";
 import { PageTransition } from "@/components/PageTransition";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,7 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Camera, Bike, Footprints, Dumbbell, Save, ImagePlus, User, Heart, Phone, MapPin } from "lucide-react";
+import { Camera, Bike, Footprints, Dumbbell, Save, ImagePlus, User, Heart, Phone, MapPin, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { apiFetch } from "@/services/api";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -31,11 +34,23 @@ const sportOptions: { value: SportType; label: string; icon: typeof Bike }[] = [
 const experienceLevels = ["beginner", "intermediate", "advanced", "elite"] as const;
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const avatarRef = useRef<HTMLInputElement>(null);
   const sportPhotoRef = useRef<HTMLInputElement>(null);
-  const [profile, setProfile] = useState<AthleteProfile>(() => profileService.getProfile());
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [profile, setProfile] = useState<AthleteProfile>({
+    bio: "", phone: "", dateOfBirth: "", gender: "", country: "", city: "",
+    height: null, weight: null, primarySport: "cycling", secondarySports: [],
+    experienceLevel: "intermediate", weeklyGoalHours: null, avatarUrl: "", sportPhotoUrl: "",
+  });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    profileService.getProfile().then(setProfile).catch(() => {
+      toast.error("Failed to load profile");
+    });
+  }, []);
 
   const update = <K extends keyof AthleteProfile>(key: K, value: AthleteProfile[K]) => {
     setProfile((prev) => ({ ...prev, [key]: value }));
@@ -54,10 +69,20 @@ export default function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const handleDeleteAccount = async () => {
+    try {
+      await apiFetch("/api/users/me", { method: "DELETE" }, true);
+      await logout();
+      navigate("/");
+    } catch {
+      toast.error("Failed to delete account");
+    }
+  };
+
+  const handleSave = async () => {
     setSaving(true);
     try {
-      profileService.saveProfile(profile);
+      await profileService.saveProfile(profile);
       toast.success("Profile saved successfully");
     } catch {
       toast.error("Failed to save profile");
@@ -426,7 +451,7 @@ export default function ProfilePage() {
 
               {/* Save */}
               <div className="mt-6 pt-5 border-t border-border flex items-center justify-between">
-                <p className="text-xs text-muted-foreground hidden sm:block">Changes saved locally</p>
+                <p className="text-xs text-muted-foreground hidden sm:block">Changes saved to your account</p>
                 <Button
                   onClick={handleSave}
                   disabled={saving}
@@ -438,7 +463,31 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+          {/* Danger Zone */}
+          <div className="glass-surface rounded-xl p-6 border-destructive/30 border">
+            <h3 className="text-sm font-semibold text-destructive mb-1">Danger Zone</h3>
+            <p className="text-xs text-muted-foreground mb-4">Permanently delete your account and all associated data. This cannot be undone.</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 border border-destructive/30"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Account
+            </Button>
+          </div>
         </div>
+
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title="Delete Account"
+          description="Are you sure you want to permanently delete your account? All your data, activities, and profile information will be removed. This action cannot be undone."
+          confirmLabel="Delete Account"
+          variant="destructive"
+          onConfirm={handleDeleteAccount}
+        />
       </PageTransition>
     </AppShell>
   );

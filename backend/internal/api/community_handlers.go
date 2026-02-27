@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -10,7 +11,7 @@ import (
 // ---------- Posts ----------
 
 func (h *Handler) communityListPosts(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -40,7 +41,9 @@ func (h *Handler) communityListPosts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := h.store.ListPosts(r.Context(), cursor, limit, user.ID)
+	search := strings.TrimSpace(r.URL.Query().Get("q"))
+
+	result, err := h.store.ListPosts(r.Context(), cursor, limit, user.ID, search)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to list posts")
 		return
@@ -49,7 +52,7 @@ func (h *Handler) communityListPosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) communityCreatePost(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -76,6 +79,10 @@ func (h *Handler) communityCreatePost(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "content is required")
 		return
 	}
+	if len(req.Content) > 5000 {
+		writeErr(w, http.StatusBadRequest, "post content must be at most 5000 characters")
+		return
+	}
 
 	post, err := h.store.CreatePost(r.Context(), user.ID, req.Content, req.ActivityID)
 	if err != nil {
@@ -84,10 +91,29 @@ func (h *Handler) communityCreatePost(w http.ResponseWriter, r *http.Request) {
 	}
 	post.AuthorName = user.FirstName + " " + user.LastName
 	writeJSON(w, http.StatusCreated, post)
+
+	// Notify all other approved users asynchronously — failure is non-fatal.
+	go func() {
+		ids, err := h.store.ListApprovedUserIDs(context.Background(), user.ID)
+		if err != nil {
+			return
+		}
+		authorName := strings.TrimSpace(user.FirstName + " " + user.LastName)
+		preview := req.Content
+		if len(preview) > 100 {
+			preview = preview[:100] + "…"
+		}
+		for _, id := range ids {
+			_ = h.store.CreateNotification(context.Background(), id,
+				authorName+" posted in Community",
+				preview,
+			)
+		}
+	}()
 }
 
 func (h *Handler) communityGetPost(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -125,7 +151,7 @@ func (h *Handler) communityGetPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) communityDeletePost(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -157,7 +183,7 @@ func (h *Handler) communityDeletePost(w http.ResponseWriter, r *http.Request) {
 // ---------- Comments ----------
 
 func (h *Handler) communityAddComment(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -189,6 +215,10 @@ func (h *Handler) communityAddComment(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "content is required")
 		return
 	}
+	if len(req.Content) > 2000 {
+		writeErr(w, http.StatusBadRequest, "comment content must be at most 2000 characters")
+		return
+	}
 
 	comment, err := h.store.CreateComment(r.Context(), postID, user.ID, req.Content)
 	if err != nil {
@@ -196,11 +226,20 @@ func (h *Handler) communityAddComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	comment.AuthorName = user.FirstName + " " + user.LastName
+
+	// Notify the post author (skip if commenter is the author)
+	if authorID, err := h.store.GetPostAuthorID(r.Context(), postID); err == nil && authorID != user.ID {
+		_ = h.store.CreateNotification(r.Context(), authorID,
+			"New comment on your post",
+			user.FirstName+" "+user.LastName+" commented on your post.",
+		)
+	}
+
 	writeJSON(w, http.StatusCreated, comment)
 }
 
 func (h *Handler) communityDeleteComment(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -232,7 +271,7 @@ func (h *Handler) communityDeleteComment(w http.ResponseWriter, r *http.Request)
 // ---------- Reactions ----------
 
 func (h *Handler) communityToggleReaction(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -16,7 +18,8 @@ import (
 )
 
 type Handler struct {
-	store *store.Store
+	store  *store.Store
+	authRL *rateLimiter
 }
 
 type registerRequest struct {
@@ -37,7 +40,10 @@ type authResponse struct {
 }
 
 func NewHandler(store *store.Store) *Handler {
-	return &Handler{store: store}
+	return &Handler{
+		store:  store,
+		authRL: newRateLimiter(10), // 10 requests/minute on auth routes
+	}
 }
 
 func (h *Handler) Routes() http.Handler {
@@ -45,15 +51,34 @@ func (h *Handler) Routes() http.Handler {
 
 	mux.HandleFunc("GET /api/health", h.health)
 
-	mux.HandleFunc("POST /api/auth/register", h.register)
-	mux.HandleFunc("POST /api/auth/login", h.login)
+	mux.HandleFunc("POST /api/auth/register", h.authRL.limit(h.register))
+	mux.HandleFunc("POST /api/auth/login", h.authRL.limit(h.login))
 	mux.HandleFunc("POST /api/auth/logout", h.logout)
 	mux.HandleFunc("GET /api/auth/me", h.me)
+	mux.HandleFunc("POST /api/auth/forgot-password", h.authRL.limit(h.forgotPassword))
+	mux.HandleFunc("POST /api/auth/reset-password", h.authRL.limit(h.resetPassword))
+
+	// Account settings (no subscription check)
+	mux.HandleFunc("PUT /api/account/email", h.changeEmail)
+	mux.HandleFunc("PUT /api/account/password", h.changePassword)
+	mux.HandleFunc("DELETE /api/account/google", h.unlinkGoogle)
+	mux.HandleFunc("GET /api/account/subscription", h.getMySubscription)
+
+	// Google OAuth (no subscription check, browser redirects)
+	mux.HandleFunc("GET /auth/google/link", h.googleLinkStart)
+	mux.HandleFunc("GET /auth/google/callback", h.googleLinkCallback)
+
+	mux.HandleFunc("GET /api/notifications", h.listNotifications)
+	mux.HandleFunc("POST /api/notifications/read-all", h.markNotificationsRead)
+	mux.HandleFunc("DELETE /api/notifications", h.clearNotifications)
+	mux.HandleFunc("GET /api/notifications/unread-count", h.notificationUnreadCount)
 
 	mux.HandleFunc("GET /api/admin/users", h.adminListUsers)
 	mux.HandleFunc("PATCH /api/admin/users/", h.adminUpdateUserStatus)
 	mux.HandleFunc("DELETE /api/admin/users/", h.adminDeleteUser)
 	mux.HandleFunc("GET /api/admin/actions", h.adminListActions)
+	mux.HandleFunc("GET /api/admin/subscriptions", h.adminListSubscriptions)
+	mux.HandleFunc("PUT /api/admin/subscriptions/", h.adminUpdateSubscription)
 
 	mux.HandleFunc("POST /api/activities/upload", h.upload)
 	mux.HandleFunc("GET /api/activities", h.list)
@@ -61,6 +86,10 @@ func (h *Handler) Routes() http.Handler {
 
 	mux.HandleFunc("GET /api/users/approved", h.listApprovedUsers)
 	mux.HandleFunc("PUT /api/users/avatar", h.updateAvatar)
+	mux.HandleFunc("DELETE /api/users/me", h.deleteAccount)
+
+	mux.HandleFunc("GET /api/profile", h.getProfile)
+	mux.HandleFunc("PUT /api/profile", h.updateProfile)
 
 	// Community
 	mux.HandleFunc("GET /api/community/posts", h.communityListPosts)
@@ -87,11 +116,18 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("DELETE /api/messages/conversations/{id}", h.messagingDeleteConversation)
 	mux.HandleFunc("GET /api/messages/unread-count", h.messagingUnreadCount)
 
-	return cors(mux)
+	return requestIDMiddleware(requestLogger(cors(mux)))
 }
 
-func (h *Handler) health(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
+	dbStatus := "connected"
+	if err := h.store.Ping(r.Context()); err != nil {
+		slog.Error("health check db ping failed", "err", err)
+		dbStatus = "unavailable"
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "degraded", "db": dbStatus})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "db": dbStatus})
 }
 
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +139,14 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 
 	if strings.TrimSpace(req.FirstName) == "" || strings.TrimSpace(req.LastName) == "" {
 		writeErr(w, http.StatusBadRequest, "firstName and lastName are required")
+		return
+	}
+	if len(req.FirstName) > 100 || len(req.LastName) > 100 {
+		writeErr(w, http.StatusBadRequest, "firstName and lastName must be at most 100 characters")
+		return
+	}
+	if len(req.Email) > 255 {
+		writeErr(w, http.StatusBadRequest, "email must be at most 255 characters")
 		return
 	}
 	if !strings.Contains(req.Email, "@") {
@@ -149,6 +193,15 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Transparent rehash from legacy SHA-256 to bcrypt
+	if auth.NeedsRehash(user.PasswordHash) {
+		if newHash, err := auth.HashPassword(req.Password); err == nil {
+			if err := h.store.UpdatePasswordHash(r.Context(), user.ID, newHash); err != nil {
+				slog.Warn("failed to rehash password", "userID", user.ID, "err", err)
+			}
+		}
+	}
+
 	switch user.Status {
 	case "pending":
 		writeErrCode(w, http.StatusForbidden, "pending_approval", "account is pending admin approval")
@@ -187,12 +240,13 @@ func (h *Handler) adminListUsers(w http.ResponseWriter, r *http.Request) {
 
 	search := r.URL.Query().Get("search")
 	status := r.URL.Query().Get("status")
-	users, err := h.store.ListUsers(r.Context(), search, status)
+	page, pageSize := parsePageParams(r)
+	result, err := h.store.ListUsers(r.Context(), search, status, page, pageSize)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to list users")
 		return
 	}
-	writeJSON(w, http.StatusOK, users)
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) adminUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
@@ -230,6 +284,15 @@ func (h *Handler) adminUpdateUserStatus(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusInternalServerError, "failed to update user status")
 		return
 	}
+
+	// Notify the user of the status change
+	title := "Account Approved"
+	body := "Your GPX TrackPro account has been approved. You can now sign in."
+	if newStatus == "rejected" {
+		title = "Account Rejected"
+		body = "Your GPX TrackPro account application has been rejected. Contact support for assistance."
+	}
+	_ = h.store.CreateNotification(r.Context(), targetID, title, body)
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "status updated"})
 }
@@ -270,7 +333,7 @@ func (h *Handler) adminListActions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -315,21 +378,22 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
 
-	activities, err := h.store.ListActivities(r.Context(), user.ID)
+	page, pageSize := parsePageParams(r)
+	result, err := h.store.ListActivities(r.Context(), user.ID, page, pageSize)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to list activities")
 		return
 	}
-	writeJSON(w, http.StatusOK, activities)
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -359,7 +423,7 @@ func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) updateAvatar(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.requireApprovedUser(w, r)
+	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
@@ -378,16 +442,63 @@ func (h *Handler) updateAvatar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listApprovedUsers(w http.ResponseWriter, r *http.Request) {
-	_, ok := h.requireApprovedUser(w, r)
+	_, ok := h.requireSubscribedUser(w, r)
 	if !ok {
 		return
 	}
-	users, err := h.store.ListApprovedUsers(r.Context())
+	page, pageSize := parsePageParams(r)
+	if pageSize == 20 {
+		pageSize = 100 // default larger page for the user-picker dropdown
+	}
+	result, err := h.store.ListApprovedUsers(r.Context(), page, pageSize)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to list users")
 		return
 	}
-	writeJSON(w, http.StatusOK, users)
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) getProfile(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireSubscribedUser(w, r)
+	if !ok {
+		return
+	}
+	profile, err := h.store.GetProfile(r.Context(), user.ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to get profile")
+		return
+	}
+	writeJSON(w, http.StatusOK, profile)
+}
+
+func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireSubscribedUser(w, r)
+	if !ok {
+		return
+	}
+	var req store.AthleteProfile
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	profile, err := h.store.UpsertProfile(r.Context(), user.ID, req)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to update profile")
+		return
+	}
+	writeJSON(w, http.StatusOK, profile)
+}
+
+func (h *Handler) deleteAccount(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireApprovedUser(w, r)
+	if !ok {
+		return
+	}
+	if err := h.store.DeleteUser(r.Context(), user.ID); err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to delete account")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "account deleted"})
 }
 
 func (h *Handler) requireApprovedUser(w http.ResponseWriter, r *http.Request) (store.User, bool) {
@@ -397,6 +508,25 @@ func (h *Handler) requireApprovedUser(w http.ResponseWriter, r *http.Request) (s
 	}
 	if user.Status != "approved" {
 		writeErrCode(w, http.StatusForbidden, "pending_approval", "user is not approved")
+		return store.User{}, false
+	}
+	return user, true
+}
+
+// requireSubscribedUser verifies the user is approved and has an active subscription.
+// Admins bypass the subscription check. Returns 402 Payment Required if the
+// subscription is missing, expired, or inactive.
+func (h *Handler) requireSubscribedUser(w http.ResponseWriter, r *http.Request) (store.User, bool) {
+	user, ok := h.requireApprovedUser(w, r)
+	if !ok {
+		return store.User{}, false
+	}
+	if user.Role == "admin" {
+		return user, true
+	}
+	sub, err := h.store.GetSubscription(r.Context(), user.ID)
+	if err != nil || !sub.IsActive() {
+		writeErrCode(w, http.StatusPaymentRequired, "subscription_required", "active subscription required")
 		return store.User{}, false
 	}
 	return user, true
@@ -443,6 +573,22 @@ func (h *Handler) requireAuthenticated(w http.ResponseWriter, r *http.Request) (
 	return user, true
 }
 
+func parsePageParams(r *http.Request) (page, pageSize int) {
+	page = 1
+	pageSize = 20
+	if p := r.URL.Query().Get("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if ps := r.URL.Query().Get("pageSize"); ps != "" {
+		if v, err := strconv.Atoi(ps); err == nil && v > 0 && v <= 200 {
+			pageSize = v
+		}
+	}
+	return
+}
+
 func writeErr(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
@@ -458,8 +604,14 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 
 func cors(next http.Handler) http.Handler {
+	allowedOrigins := parseAllowedOrigins(os.Getenv("ALLOWED_ORIGINS"))
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+		allowedOrigin := resolveOrigin(origin, allowedOrigins)
+
+		w.Header().Set("Vary", "Origin")
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
@@ -467,5 +619,58 @@ func cors(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+func parseAllowedOrigins(env string) []string {
+	if env == "" {
+		return nil
+	}
+	parts := strings.Split(env, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+func resolveOrigin(origin string, allowed []string) string {
+	// No allowed list configured → dev mode, allow all
+	if len(allowed) == 0 {
+		return "*"
+	}
+	for _, o := range allowed {
+		if o == origin {
+			return origin
+		}
+	}
+	// Origin not in allowlist → reflect first allowed origin as a safe fallback
+	return allowed[0]
+}
+
+// requestLogger is a simple middleware that logs method, path, status and duration.
+type responseRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rr *responseRecorder) WriteHeader(code int) {
+	rr.status = code
+	rr.ResponseWriter.WriteHeader(code)
+}
+
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		slog.Info("request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", rec.status,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 	})
 }

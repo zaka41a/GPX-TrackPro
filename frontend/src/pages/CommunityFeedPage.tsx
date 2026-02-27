@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/layouts/AppShell";
@@ -6,9 +6,10 @@ import { communityService } from "@/services/communityService";
 import { useAuth } from "@/hooks/useAuth";
 import { CommunityPost } from "@/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/UserAvatar";
-import { Users, Pin, Send, MessageSquare, Trash2, Loader2 } from "lucide-react";
+import { Users, Pin, Send, MessageSquare, Trash2, Loader2, Search, ShieldOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const REACTION_EMOJIS = ["\u{1F44D}", "\u{1F525}", "\u{1F4AA}", "\u{1F3C6}"];
@@ -32,15 +33,24 @@ export default function CommunityFeedPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [banned, setBanned] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Composer
   const [composerOpen, setComposerOpen] = useState(false);
   const [newContent, setNewContent] = useState("");
   const [posting, setPosting] = useState(false);
 
-  const fetchPosts = useCallback(async (cursor?: number) => {
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(value), 400);
+  };
+
+  const fetchPosts = useCallback(async (cursor?: number, q?: string) => {
     try {
-      const result = await communityService.listPosts(cursor);
+      const result = await communityService.listPosts(cursor, q);
       if (cursor) {
         setPosts((prev) => [...prev, ...result.posts]);
       } else {
@@ -58,8 +68,11 @@ export default function CommunityFeedPage() {
   }, []);
 
   useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+    setLoading(true);
+    setPosts([]);
+    setNextCursor(null);
+    fetchPosts(undefined, debouncedSearch);
+  }, [fetchPosts, debouncedSearch]);
 
   const handleCreatePost = async () => {
     if (!newContent.trim()) return;
@@ -107,7 +120,18 @@ export default function CommunityFeedPage() {
   const handleLoadMore = () => {
     if (!nextCursor) return;
     setLoadingMore(true);
-    fetchPosts(nextCursor);
+    fetchPosts(nextCursor, debouncedSearch);
+  };
+
+  const handleBan = async (authorId: number, authorName: string) => {
+    const reason = prompt(`Ban reason for ${authorName} (optional):`);
+    if (reason === null) return; // cancelled
+    try {
+      await communityService.banUser(authorId, reason.trim());
+      await fetchPosts();
+    } catch {
+      // silently fail
+    }
   };
 
   const isAdmin = user?.role === "admin";
@@ -118,7 +142,7 @@ export default function CommunityFeedPage() {
       <PageTransition>
         <div className="space-y-6 max-w-2xl mx-auto">
           {/* Header */}
-          <div className="glass-surface rounded-xl p-5 accent-line-top">
+          <div className="glass-surface rounded-xl p-5 accent-line-top space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="section-icon-bg">
@@ -135,6 +159,17 @@ export default function CommunityFeedPage() {
                 </Badge>
               )}
             </div>
+            {!banned && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search posts..."
+                  value={search}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-9 h-9 bg-muted/50 text-sm"
+                />
+              </div>
+            )}
           </div>
 
           {banned ? (
@@ -210,6 +245,11 @@ export default function CommunityFeedPage() {
                           {isAdmin && (
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-accent" onClick={() => handlePin(post.id, post.pinned)} title={post.pinned ? "Unpin" : "Pin"}>
                               <Pin className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {isAdmin && post.authorId !== currentUserId && (
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleBan(post.authorId, post.authorName)} title="Ban user">
+                              <ShieldOff className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {(post.authorId === currentUserId || isAdmin) && (

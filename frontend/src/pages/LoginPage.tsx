@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { PageTransition } from "@/components/PageTransition";
 import { PublicLayout } from "@/components/PublicLayout";
 import { Eye, EyeOff, AlertCircle, Clock, XCircle, ArrowRight, Shield, Zap, BarChart3 } from "lucide-react";
@@ -7,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { loginSchema, LoginFormData } from "@/lib/schemas";
 import { motion } from "framer-motion";
 
 export default function LoginPage() {
@@ -15,25 +18,21 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const statusParam = searchParams.get("status");
   const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const email = fd.get("email") as string;
-    const password = fd.get("password") as string;
-    if (!email || !password) { setError("All fields are required."); setLoading(false); return; }
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) });
+
+  const onSubmit = async (data: LoginFormData) => {
+    setServerError(null);
     try {
-      await login({ email, password });
+      await login({ email: data.email, password: data.password });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Login failed");
-      setLoading(false);
-      return;
+      setServerError(e instanceof Error ? e.message : "Login failed");
     }
-    setLoading(false);
   };
 
   if (user && user.status === "approved") {
@@ -42,7 +41,6 @@ export default function LoginPage() {
   }
 
   const inputClass = "mt-1.5 h-11 bg-muted border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:ring-2 focus:ring-accent/20";
-  const inputErrorClass = error ? "border-destructive/50 focus:border-destructive focus:ring-destructive/20" : "";
 
   return (
     <PageTransition>
@@ -119,34 +117,33 @@ export default function LoginPage() {
                 <h1 className="text-2xl font-bold mb-1 text-foreground">Welcome Back</h1>
                 <p className="text-sm text-muted-foreground mb-6">Sign in to your GPX TrackPro account.</p>
 
-                {error && (
+                {serverError && (
                   <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
-                    <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+                    <AlertCircle className="h-4 w-4 shrink-0" /> {serverError}
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                   <div>
                     <Label htmlFor="email" className="text-foreground text-sm font-medium">Email <span className="text-destructive">*</span></Label>
                     <Input
                       id="email"
-                      name="email"
                       type="email"
-                      required
                       placeholder="you@example.com"
-                      className={`${inputClass} ${inputErrorClass}`}
+                      className={inputClass}
+                      {...register("email")}
                     />
+                    {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
                   </div>
                   <div>
                     <Label htmlFor="password" className="text-foreground text-sm font-medium">Password <span className="text-destructive">*</span></Label>
                     <div className="relative mt-1.5">
                       <Input
                         id="password"
-                        name="password"
                         type={showPw ? "text" : "password"}
-                        required
                         placeholder="••••••••"
-                        className={`pr-10 ${inputClass} ${inputErrorClass}`}
+                        className={`pr-10 ${inputClass}`}
+                        {...register("password")}
                       />
                       <button
                         type="button"
@@ -157,13 +154,18 @@ export default function LoginPage() {
                         {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
+                    {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
                   </div>
-                  <Button type="submit" disabled={loading} className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90">
-                    {loading ? "Signing in..." : "Sign In"} {!loading && <ArrowRight className="h-4 w-4 ml-2" />}
+                  <Button type="submit" disabled={isSubmitting} className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90">
+                    {isSubmitting ? "Signing in..." : "Sign In"} {!isSubmitting && <ArrowRight className="h-4 w-4 ml-2" />}
                   </Button>
                 </form>
 
-                <p className="text-sm text-muted-foreground mt-6 text-center">
+                <p className="text-sm text-muted-foreground mt-4 text-center">
+                  <Link to="/forgot-password" className="text-accent font-medium hover:underline">Forgot your password?</Link>
+                </p>
+
+                <p className="text-sm text-muted-foreground mt-4 text-center">
                   Don't have an account?{" "}
                   <Link to="/register" className="text-accent font-medium hover:underline">Create one</Link>
                 </p>

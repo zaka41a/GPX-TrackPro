@@ -1,30 +1,49 @@
 package auth
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"strings"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
+const bcryptCost = 12
+
+// HashPassword hashes a password using bcrypt.
 func HashPassword(raw string) (string, error) {
 	if len(strings.TrimSpace(raw)) < 8 {
 		return "", errors.New("password must contain at least 8 characters")
 	}
 
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return "", fmt.Errorf("failed to generate salt: %w", err)
+	hash, err := bcrypt.GenerateFromPassword([]byte(raw), bcryptCost)
+	if err != nil {
+		return "", err
 	}
-
-	digest := derive(raw, salt)
-	return base64.RawURLEncoding.EncodeToString(salt) + ":" + base64.RawURLEncoding.EncodeToString(digest), nil
+	return string(hash), nil
 }
 
+// VerifyPassword checks a raw password against an encoded hash.
+// Supports bcrypt ($2a$/$2b$) and legacy SHA-256 (salt:digest) formats.
 func VerifyPassword(raw, encoded string) bool {
+	if isBcrypt(encoded) {
+		return bcrypt.CompareHashAndPassword([]byte(encoded), []byte(raw)) == nil
+	}
+	return verifySHA256(raw, encoded)
+}
+
+// NeedsRehash returns true if the hash is not bcrypt (i.e. legacy SHA-256).
+func NeedsRehash(encoded string) bool {
+	return !isBcrypt(encoded)
+}
+
+func isBcrypt(encoded string) bool {
+	return strings.HasPrefix(encoded, "$2a$") || strings.HasPrefix(encoded, "$2b$")
+}
+
+func verifySHA256(raw, encoded string) bool {
 	parts := strings.Split(encoded, ":")
 	if len(parts) != 2 {
 		return false
@@ -39,13 +58,9 @@ func VerifyPassword(raw, encoded string) bool {
 		return false
 	}
 
-	actual := derive(raw, salt)
-	return subtle.ConstantTimeCompare(actual, expected) == 1
-}
-
-func derive(raw string, salt []byte) []byte {
 	h := sha256.New()
 	_, _ = h.Write(salt)
 	_, _ = h.Write([]byte(raw))
-	return h.Sum(nil)
+	actual := h.Sum(nil)
+	return subtle.ConstantTimeCompare(actual, expected) == 1
 }

@@ -9,6 +9,7 @@ type BackendUser = {
   role: "admin" | "user";
   status: "pending" | "approved" | "rejected";
   avatarUrl: string;
+  googleEmail?: string;
   createdAt: string;
 };
 
@@ -32,7 +33,8 @@ function mapUser(u: BackendUser): User {
     role: u.role,
     status: u.status,
     avatarUrl: u.avatarUrl || "",
-    createdAt: u.createdAt
+    googleEmail: u.googleEmail,
+    createdAt: u.createdAt,
   };
 }
 

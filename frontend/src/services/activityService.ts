@@ -76,10 +76,22 @@ function mapStats(a: BackendActivity): ActivityStatistics {
   };
 }
 
+type PaginatedActivities = {
+  items: BackendActivity[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 export const activityService = {
-  async getActivities(): Promise<Activity[]> {
-    const activities = await apiFetch<BackendActivity[]>("/api/activities", undefined, true);
-    return activities.map(mapActivity);
+  async getActivities(page = 1, pageSize = 100): Promise<Activity[]> {
+    const result = await apiFetch<PaginatedActivities>(
+      `/api/activities?page=${page}&pageSize=${pageSize}`,
+      undefined,
+      true,
+    );
+    return result.items.map(mapActivity);
   },
 
   async getActivityById(id: string): Promise<ActivityStatistics | null> {

@@ -14,9 +14,8 @@ func TestHashPassword_And_Verify(t *testing.T) {
 		t.Fatalf("HashPassword() error: %v", err)
 	}
 
-	parts := strings.Split(hash, ":")
-	if len(parts) != 2 {
-		t.Fatalf("expected salt:hash format, got %q", hash)
+	if !strings.HasPrefix(hash, "$2a$") && !strings.HasPrefix(hash, "$2b$") {
+		t.Fatalf("expected bcrypt hash format ($2a$//$2b$), got %q", hash)
 	}
 
 	if !VerifyPassword(password, hash) {
@@ -25,6 +24,20 @@ func TestHashPassword_And_Verify(t *testing.T) {
 
 	if VerifyPassword("wrongpassword", hash) {
 		t.Fatal("VerifyPassword() should return false for wrong password")
+	}
+}
+
+func TestNeedsRehash(t *testing.T) {
+	// bcrypt hash should NOT need rehash
+	bcryptHash, _ := HashPassword("password123")
+	if NeedsRehash(bcryptHash) {
+		t.Fatal("bcrypt hash should not need rehash")
+	}
+
+	// Legacy SHA-256 format should need rehash
+	legacyHash := "c2FsdA:aGFzaA" // fake salt:hash
+	if !NeedsRehash(legacyHash) {
+		t.Fatal("legacy SHA-256 hash should need rehash")
 	}
 }
 

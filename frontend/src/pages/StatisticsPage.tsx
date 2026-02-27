@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/layouts/AppShell";
 import { SkeletonKpiRow } from "@/components/SkeletonCards";
 import { EmptyState } from "@/components/EmptyState";
-import { activityService } from "@/services/activityService";
+import { useActivities } from "@/hooks/useActivities";
 import { Activity } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,15 +47,7 @@ const fadeIn = (delay = 0) => ({
 });
 
 export default function StatisticsPage() {
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    activityService.getActivities().then((a) => {
-      setActivities(a);
-      setLoading(false);
-    });
-  }, []);
+  const { data: activities = [], isLoading: loading } = useActivities();
 
   const totalDistance = activities.reduce((s, a) => s + a.distance, 0);
   const totalDuration = activities.reduce((s, a) => s + a.duration, 0);

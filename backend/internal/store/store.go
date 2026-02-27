@@ -48,6 +48,34 @@ func (s *Store) Close() {
 	s.pool.Close()
 }
 
+// Ping checks that the database is reachable.
+func (s *Store) Ping(ctx context.Context) error {
+	return s.pool.Ping(ctx)
+}
+
+// PaginatedResult is a generic container for paginated list responses.
+type PaginatedResult[T any] struct {
+	Items      []T `json:"items"`
+	Total      int `json:"total"`
+	Page       int `json:"page"`
+	PageSize   int `json:"pageSize"`
+	TotalPages int `json:"totalPages"`
+}
+
+func newPaginated[T any](items []T, total, page, pageSize int) PaginatedResult[T] {
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	return PaginatedResult[T]{
+		Items:      items,
+		Total:      total,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
+	}
+}
+
 func (s *Store) CreateActivity(ctx context.Context, userID int64, fileName, sportType string, parsed gpx.ParsedActivity, m metrics.Result) (Activity, error) {
 	pointsJSON, err := json.Marshal(parsed.Points)
 	if err != nil {
@@ -141,7 +169,26 @@ func (s *Store) GetActivity(ctx context.Context, id, userID int64) (Activity, er
 	return activity, nil
 }
 
-func (s *Store) ListActivities(ctx context.Context, userID int64) ([]Activity, error) {
+func (s *Store) CountActivities(ctx context.Context, userID int64) (int, error) {
+	var count int
+	err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM activities WHERE user_id = $1`, userID).Scan(&count)
+	return count, err
+}
+
+func (s *Store) ListActivities(ctx context.Context, userID int64, page, pageSize int) (PaginatedResult[Activity], error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+
+	total, err := s.CountActivities(ctx, userID)
+	if err != nil {
+		return PaginatedResult[Activity]{}, err
+	}
+
 	query := `
 		SELECT id, user_id, file_name, sport_type, activity_name, activity_date,
 			distance_km, duration_sec, avg_speed_kmh, max_speed_kmh, pace_min_km,
@@ -150,12 +197,12 @@ func (s *Store) ListActivities(ctx context.Context, userID int64) ([]Activity, e
 		FROM activities
 		WHERE user_id = $1
 		ORDER BY activity_date DESC
-		LIMIT 100
+		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := s.pool.Query(ctx, query, userID)
+	rows, err := s.pool.Query(ctx, query, userID, pageSize, offset)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[Activity]{}, err
 	}
 	defer rows.Close()
 
@@ -184,10 +231,13 @@ func (s *Store) ListActivities(ctx context.Context, userID int64) ([]Activity, e
 			&a.CreatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return PaginatedResult[Activity]{}, err
 		}
 		a.Metrics.ActivityDate = a.ActivityDate
 		activities = append(activities, a)
 	}
-	return activities, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[Activity]{}, err
+	}
+	return newPaginated(activities, total, page, pageSize), nil
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,14 +15,25 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-	if os.Getenv("JWT_SECRET") == "" {
-		log.Println("warning: JWT_SECRET is not set, using insecure development default")
+	// Structured JSON logging
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
+	// JWT secret validation
+	jwtSecret := os.Getenv("JWT_SECRET")
+	goEnv := os.Getenv("GO_ENV")
+	if jwtSecret == "" {
+		if goEnv == "production" {
+			log.Fatal("JWT_SECRET must be set in production")
+		}
+		slog.Warn("JWT_SECRET is not set, using insecure development default")
 		_ = os.Setenv("JWT_SECRET", "dev-only-change-me")
 	}
+
+	ctx := context.Background()
 	db, err := store.New(ctx)
 	if err != nil {
-		log.Fatalf("database initialization failed: %v", err)
+		slog.Error("database initialization failed", "err", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
@@ -38,9 +50,10 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("backend listening on http://localhost:%s", port)
+		slog.Info("backend started", "addr", "http://localhost:"+port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+			slog.Error("server error", "err", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -48,9 +61,10 @@ func main() {
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
 	<-stop
 
+	slog.Info("shutting down gracefully")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("graceful shutdown failed: %v", err)
+		slog.Error("graceful shutdown failed", "err", err)
 	}
 }
