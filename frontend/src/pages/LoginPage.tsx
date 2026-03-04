@@ -52,7 +52,8 @@ export default function LoginPage() {
         body: JSON.stringify({ email: resendEmail }),
       });
       setResendSent(true);
-    } catch {
+    } catch (_err) {
+      setServerError("Unable to resend verification email");
     }
   };
 
