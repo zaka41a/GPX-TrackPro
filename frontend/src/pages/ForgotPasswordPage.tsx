@@ -18,17 +18,22 @@ type FormData = z.infer<typeof schema>;
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
     useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
     setServerError(null);
+    setDevResetUrl(null);
     try {
-      await apiFetch("/api/auth/forgot-password", {
+      const res = await apiFetch<{ message: string; devResetUrl?: string }>("/api/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({ email: data.email }),
       });
+      if (res.devResetUrl) {
+        setDevResetUrl(res.devResetUrl);
+      }
       setSent(true);
     } catch (e: unknown) {
       setServerError(e instanceof Error ? e.message : "Request failed");
@@ -57,6 +62,19 @@ export default function ForgotPasswordPage() {
                   <p className="text-sm text-muted-foreground mb-6">
                     If an account with that email exists, you will receive a password reset link shortly.
                   </p>
+                  {devResetUrl && (
+                    <div className="mb-4 rounded-lg border border-accent/20 bg-accent/5 p-3 text-left">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Development mode: reset link
+                      </p>
+                      <a
+                        href={devResetUrl}
+                        className="text-xs text-accent underline break-all"
+                      >
+                        {devResetUrl}
+                      </a>
+                    </div>
+                  )}
                   <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted" asChild>
                     <Link to="/login"><ArrowLeft className="h-4 w-4 mr-2" />Back to Sign In</Link>
                   </Button>

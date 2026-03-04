@@ -4,13 +4,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageTransition } from "@/components/PageTransition";
 import { PublicLayout } from "@/components/PublicLayout";
-import { Eye, EyeOff, AlertCircle, Clock, XCircle, ArrowRight, Shield, Zap, BarChart3 } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, Clock, XCircle, ArrowRight, Shield, Zap, BarChart3, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { loginSchema, LoginFormData } from "@/lib/schemas";
 import { motion } from "framer-motion";
+import { ApiError, apiFetch } from "@/services/api";
 
 export default function LoginPage() {
   const { login, user } = useAuth();
@@ -19,6 +20,9 @@ export default function LoginPage() {
   const statusParam = searchParams.get("status");
   const [showPw, setShowPw] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [emailNotVerified, setEmailNotVerified] = useState(false);
+  const [resendEmail, setResendEmail] = useState("");
+  const [resendSent, setResendSent] = useState(false);
 
   const {
     register,
@@ -28,10 +32,27 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     setServerError(null);
+    setEmailNotVerified(false);
     try {
       await login({ email: data.email, password: data.password });
     } catch (e: unknown) {
-      setServerError(e instanceof Error ? e.message : "Login failed");
+      if (e instanceof ApiError && e.code === "EMAIL_NOT_VERIFIED") {
+        setEmailNotVerified(true);
+        setResendEmail(data.email);
+      } else {
+        setServerError(e instanceof Error ? e.message : "Login failed");
+      }
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      await apiFetch<{ message: string }>("/api/auth/resend-verification", {
+        method: "POST",
+        body: JSON.stringify({ email: resendEmail }),
+      });
+      setResendSent(true);
+    } catch {
     }
   };
 
@@ -46,7 +67,6 @@ export default function LoginPage() {
     <PageTransition>
       <PublicLayout showFooter={false}>
         <div className="flex-1 flex min-h-[calc(100vh-4rem)]">
-          {/* Brand panel - desktop only */}
           <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
@@ -81,7 +101,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Form panel */}
           <div className="flex-1 flex items-center justify-center p-6 bg-background">
             <div className="w-full max-w-md">
               {statusParam === "pending" && (
@@ -109,7 +128,6 @@ export default function LoginPage() {
                 transition={{ duration: 0.5 }}
                 className="rounded-2xl bg-card border border-border p-8 shadow-sm"
               >
-                {/* Mobile logo */}
                 <div className="flex items-center justify-center mb-6 lg:hidden">
                   <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-12 w-12 rounded-xl object-cover" />
                 </div>
@@ -117,6 +135,26 @@ export default function LoginPage() {
                 <h1 className="text-2xl font-bold mb-1 text-foreground">Welcome Back</h1>
                 <p className="text-sm text-muted-foreground mb-6">Sign in to your GPX TrackPro account.</p>
 
+                {emailNotVerified && (
+                  <div className="rounded-lg p-4 mb-4 bg-blue-500/10 border border-blue-500/20 text-sm">
+                    <div className="flex items-start gap-2 mb-3">
+                      <Mail className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-foreground">Email not verified</p>
+                        <p className="text-muted-foreground mt-0.5">
+                          Please check your inbox and click the verification link before logging in.
+                        </p>
+                      </div>
+                    </div>
+                    {resendSent ? (
+                      <p className="text-green-500 text-xs font-medium">✓ Verification email resent!</p>
+                    ) : (
+                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleResend}>
+                        Resend verification email
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {serverError && (
                   <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
                     <AlertCircle className="h-4 w-4 shrink-0" /> {serverError}

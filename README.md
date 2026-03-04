@@ -303,6 +303,19 @@ advanced sport metrics, role-based user management, and offline-ready PWA mode.
 
 ## Quick Start
 
+### One-command launch options
+
+```bash
+# Full local stack (backend + frontend, expects local/db docker reachable on localhost:5432)
+npm run dev
+
+# Frontend only
+npm run dev:frontend
+
+# Full Docker stack
+npm run dev:docker
+```
+
 ### Prerequisites
 
 | Tool | Version | Installation |
@@ -647,6 +660,8 @@ curl http://localhost:8083/api/activities \
 | `ADMIN_PASSWORD` | Admin password (min 8 characters) | &mdash; | CLI |
 
 > A [`.env.example`](.env.example) template is provided at the project root.
+>
+> Setup guide for Google/Stripe/SMTP keys: [`docs/SETUP_KEYS.md`](docs/SETUP_KEYS.md)
 
 <br />
 

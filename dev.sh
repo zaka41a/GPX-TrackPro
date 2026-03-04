@@ -19,6 +19,17 @@ success() { echo -e "${GREEN}[dev]${NC} $*"; }
 warn()    { echo -e "${YELLOW}[dev]${NC} $*"; }
 error()   { echo -e "${RED}[dev]${NC} $*" >&2; }
 
+ensure_db_with_docker() {
+  if command -v docker >/dev/null 2>&1; then
+    if docker compose version >/dev/null 2>&1; then
+      warn "Local Postgres is unavailable. Starting Docker service 'db'..."
+      docker compose up -d db >/dev/null
+      return $?
+    fi
+  fi
+  return 1
+}
+
 # ── Load .env ────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
   info "Loading $ENV_FILE"
@@ -32,15 +43,46 @@ fi
 
 # ── Validate required vars ────────────────────────────────────────
 if [[ -z "${DATABASE_URL:-}" ]]; then
-  error "DATABASE_URL is not set. Edit .env and try again."
-  exit 1
+  DATABASE_URL="postgres://gpx:${DB_PASSWORD:-gpx_secret}@localhost:5432/gpx_training_analyzer?sslmode=disable"
+  export DATABASE_URL
+  warn "DATABASE_URL not set. Using default local URL: $DATABASE_URL"
+fi
+
+if [[ -z "${VITE_API_BASE:-}" ]]; then
+  VITE_API_BASE="http://localhost:${PORT:-8080}"
+  export VITE_API_BASE
+  info "VITE_API_BASE not set. Using $VITE_API_BASE"
 fi
 
 # ── Check postgres is reachable ───────────────────────────────────
 info "Checking database connection…"
 if ! psql "$DATABASE_URL" -c "SELECT 1" > /dev/null 2>&1; then
+  if ensure_db_with_docker; then
+    info "Waiting for Docker database..."
+    for _ in {1..20}; do
+      if psql "$DATABASE_URL" -c "SELECT 1" > /dev/null 2>&1; then
+        success "Database OK (Docker db)"
+        break
+      fi
+      sleep 1
+    done
+  fi
+fi
+
+if ! psql "$DATABASE_URL" -c "SELECT 1" > /dev/null 2>&1; then
+  LOCAL_USER_DB_URL="postgres://$(id -un)@localhost:5432/gpx_training_analyzer?sslmode=disable"
+  if [[ "$DATABASE_URL" != "$LOCAL_USER_DB_URL" ]] && psql "$LOCAL_USER_DB_URL" -c "SELECT 1" > /dev/null 2>&1; then
+    warn "Current DATABASE_URL failed. Falling back to local user: $(id -un)"
+    DATABASE_URL="$LOCAL_USER_DB_URL"
+    export DATABASE_URL
+  fi
+fi
+
+if ! psql "$DATABASE_URL" -c "SELECT 1" > /dev/null 2>&1; then
   error "Cannot connect to Postgres at: $DATABASE_URL"
-  error "Make sure Postgres is running:  brew services start postgresql@14"
+  error "Solutions:"
+  error "  1) Local Postgres: brew services start postgresql@16"
+  error "  2) Docker DB: docker compose up -d db"
   exit 1
 fi
 success "Database OK"

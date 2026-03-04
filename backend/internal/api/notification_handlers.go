@@ -12,8 +12,6 @@ import (
 	"gpx-training-analyzer/backend/internal/auth"
 )
 
-// ---------- Notifications ----------
-
 func (h *Handler) listNotifications(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
@@ -64,8 +62,6 @@ func (h *Handler) notificationUnreadCount(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, map[string]int{"count": count})
 }
 
-// ---------- Password Reset ----------
-
 func (h *Handler) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Email string `json:"email"`
@@ -80,7 +76,6 @@ func (h *Handler) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Always return success to prevent email enumeration
 	user, err := h.store.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]string{"message": "if the email exists you will receive a reset link"})
@@ -107,12 +102,17 @@ func (h *Handler) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	resetURL := frontendURL + "/reset-password?token=" + token
 
 	if err := sendPasswordResetEmail(user.Email, resetURL); err != nil {
-		// Don't expose SMTP errors to the client
 		writeErr(w, http.StatusInternalServerError, "failed to send email")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "if the email exists you will receive a reset link"})
+	resp := map[string]string{
+		"message": "if the email exists you will receive a reset link",
+	}
+	if os.Getenv("SMTP_HOST") == "" && os.Getenv("GO_ENV") != "production" {
+		resp["devResetUrl"] = resetURL
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handler) resetPassword(w http.ResponseWriter, r *http.Request) {
