@@ -31,7 +31,7 @@ export interface Activity {
 }
 
 export interface ActivityStatistics extends Activity {
-  elevationProfile?: { distance: number; elevation: number }[];
+  elevationProfile?: { distance: number; elevation: number; hr?: number }[];
   coordinates?: { lat: number; lng: number }[];
 }
 
@@ -120,6 +120,28 @@ export interface DMMessage {
   createdAt: string;
 }
 
+export interface PublicProfile {
+  id: number;
+  name: string;
+  avatarUrl: string;
+  memberSince: string;
+  bio: string;
+  city: string;
+  country: string;
+  primarySport: string;
+  secondarySports: string[];
+  experienceLevel: string;
+  sportPhotoUrl: string;
+  websiteUrl: string;
+  stravaUrl: string;
+  instagramUrl: string;
+  twitterUrl: string;
+  youtubeUrl: string;
+  linkedinUrl: string;
+  activityCount: number;
+  totalDistanceKm: number;
+}
+
 export interface AthleteProfile {
   bio: string;
   phone: string;
@@ -135,4 +157,11 @@ export interface AthleteProfile {
   weeklyGoalHours: number | null;
   avatarUrl: string;
   sportPhotoUrl: string;
+  // Social / professional links
+  websiteUrl?: string;
+  stravaUrl?: string;
+  instagramUrl?: string;
+  twitterUrl?: string;
+  youtubeUrl?: string;
+  linkedinUrl?: string;
 }

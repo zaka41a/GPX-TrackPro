@@ -64,7 +64,12 @@ function mapStats(a: BackendActivity): ActivityStatistics {
       const prev = points[i - 1];
       cumulativeKm += haversineKm(prev.lat, prev.lon, p.lat, p.lon);
     }
-    return { distance: Number(cumulativeKm.toFixed(3)), elevation: p.ele ?? 0 };
+    const pt: { distance: number; elevation: number; hr?: number } = {
+      distance: Number(cumulativeKm.toFixed(3)),
+      elevation: p.ele ?? 0,
+    };
+    if (p.hr && p.hr > 0) pt.hr = p.hr;
+    return pt;
   });
 
   const coordinates = points.map((p) => ({ lat: p.lat, lng: p.lon }));
@@ -92,6 +97,23 @@ export const activityService = {
       true,
     );
     return result.items.map(mapActivity);
+  },
+
+  async getActivitiesPage(
+    page = 1,
+    pageSize = 20,
+  ): Promise<{ items: Activity[]; page: number; totalPages: number; total: number }> {
+    const result = await apiFetch<PaginatedActivities>(
+      `/api/activities?page=${page}&pageSize=${pageSize}`,
+      undefined,
+      true,
+    );
+    return {
+      items: result.items.map(mapActivity),
+      page: result.page,
+      totalPages: result.totalPages,
+      total: result.total,
+    };
   },
 
   async getActivityById(id: string): Promise<ActivityStatistics | null> {

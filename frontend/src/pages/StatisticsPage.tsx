@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/layouts/AppShell";
 import { SkeletonKpiRow } from "@/components/SkeletonCards";
@@ -27,6 +27,19 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 
 const sportIcons: Record<string, typeof Bike> = {
   cycling: Bike,
@@ -46,8 +59,34 @@ const fadeIn = (delay = 0) => ({
   transition: { delay, duration: 0.4 },
 });
 
+type DateRange = "all" | "year" | "6m" | "3m" | "month";
+
+const DATE_RANGES: { value: DateRange; label: string }[] = [
+  { value: "all", label: "All time" },
+  { value: "year", label: "This year" },
+  { value: "6m", label: "Last 6 months" },
+  { value: "3m", label: "Last 3 months" },
+  { value: "month", label: "This month" },
+];
+
+function cutoffDate(range: DateRange): Date | null {
+  if (range === "all") return null;
+  const d = new Date();
+  if (range === "year") return new Date(d.getFullYear(), 0, 1);
+  if (range === "6m") { d.setMonth(d.getMonth() - 6); return d; }
+  if (range === "3m") { d.setMonth(d.getMonth() - 3); return d; }
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
 export default function StatisticsPage() {
-  const { data: activities = [], isLoading: loading } = useActivities();
+  const { data: allActivities = [], isLoading: loading } = useActivities();
+  const [range, setRange] = useState<DateRange>("all");
+
+  const activities = useMemo(() => {
+    const cutoff = cutoffDate(range);
+    if (!cutoff) return allActivities;
+    return allActivities.filter((a) => new Date(a.date) >= cutoff);
+  }, [allActivities, range]);
 
   const totalDistance = activities.reduce((s, a) => s + a.distance, 0);
   const totalDuration = activities.reduce((s, a) => s + a.duration, 0);
@@ -68,7 +107,6 @@ export default function StatisticsPage() {
         )
       : null;
 
-  // Sport breakdown
   const sportBreakdown = activities.reduce<
     Record<string, { count: number; distance: number; duration: number; avgSpeed: number; elevation: number }>
   >((acc, a) => {
@@ -82,7 +120,6 @@ export default function StatisticsPage() {
     return acc;
   }, {});
 
-  // Monthly breakdown (last 6 months)
   const monthlyData = activities.reduce<
     Record<string, { count: number; distance: number; duration: number; elevation: number }>
   >((acc, a) => {
@@ -102,7 +139,6 @@ export default function StatisticsPage() {
   const maxMonthlyDistance =
     sortedMonths.length > 0 ? Math.max(...sortedMonths.map(([, d]) => d.distance)) : 1;
 
-  // Personal records
   const fastestActivity =
     activities.length > 0 ? activities.reduce((best, a) => (a.maxSpeed > best.maxSpeed ? a : best)) : null;
   const mostElevation =
@@ -110,12 +146,11 @@ export default function StatisticsPage() {
       ? activities.reduce((best, a) => (a.elevationGain > best.elevationGain ? a : best))
       : null;
 
-  // Weekly avg
   const weeks = activities.length > 0
     ? (() => {
         const dates = activities.map((a) => new Date(a.date).getTime());
-        const range = Math.max(...dates) - Math.min(...dates);
-        return Math.max(1, Math.ceil(range / (7 * 24 * 60 * 60 * 1000)));
+        const span = Math.max(...dates) - Math.min(...dates);
+        return Math.max(1, Math.ceil(span / (7 * 24 * 60 * 60 * 1000)));
       })()
     : 1;
   const weeklyAvgDistance = totalDistance / weeks;
@@ -125,7 +160,6 @@ export default function StatisticsPage() {
     <AppShell>
       <PageTransition>
         <div className="space-y-8 max-w-6xl mx-auto">
-          {/* Header */}
           <div className="glass-surface rounded-xl p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -139,13 +173,29 @@ export default function StatisticsPage() {
                   </p>
                 </div>
               </div>
-              {activities.length > 0 && (
-                <Badge className="bg-accent/10 text-accent border-accent/20 text-xs self-start sm:self-auto">
-                  <Calendar className="h-3 w-3 mr-1" />
-                  {activities.length} activities tracked
-                </Badge>
-              )}
+              <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
+                {DATE_RANGES.map((r) => (
+                  <button
+                    key={r.value}
+                    onClick={() => setRange(r.value)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                      range === r.value
+                        ? "bg-accent/10 text-accent border-accent/30"
+                        : "text-muted-foreground border-transparent hover:text-foreground",
+                    )}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
             </div>
+            {activities.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Showing <span className="text-foreground font-medium">{activities.length}</span> activit{activities.length !== 1 ? "ies" : "y"}
+                {range !== "all" && ` · ${DATE_RANGES.find(r => r.value === range)?.label}`}
+              </p>
+            )}
           </div>
 
           {loading ? (
@@ -165,7 +215,6 @@ export default function StatisticsPage() {
             />
           ) : (
             <>
-              {/* Hero Stats Row */}
               <motion.div {...fadeIn(0)} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   {
@@ -227,7 +276,6 @@ export default function StatisticsPage() {
                 ))}
               </motion.div>
 
-              {/* Speed & Performance Row */}
               <motion.div {...fadeIn(0.15)} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: "Avg Speed", value: `${avgSpeed.toFixed(1)} km/h`, icon: Gauge, color: "text-accent" },
@@ -258,9 +306,7 @@ export default function StatisticsPage() {
                 ))}
               </motion.div>
 
-              {/* Two Column: Sport Breakdown + Personal Records */}
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                {/* Sport Breakdown */}
                 <motion.section {...fadeIn(0.25)} className="lg:col-span-3">
                   <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                     <div className="section-icon-bg">
@@ -294,7 +340,6 @@ export default function StatisticsPage() {
                             </span>
                           </div>
 
-                          {/* Animated progress bar */}
                           <div className="h-1.5 bg-background/50 rounded-full overflow-hidden mb-4">
                             <motion.div
                               className={cn(
@@ -358,7 +403,6 @@ export default function StatisticsPage() {
                   </div>
                 </motion.section>
 
-                {/* Personal Records */}
                 <motion.section {...fadeIn(0.35)} className="lg:col-span-2">
                   <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                     <div className="section-icon-bg bg-warning/10">
@@ -433,61 +477,159 @@ export default function StatisticsPage() {
                 </motion.section>
               </div>
 
-              {/* Monthly Overview */}
               {sortedMonths.length > 0 && (
                 <motion.section {...fadeIn(0.45)}>
                   <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                     <div className="section-icon-bg">
                       <Calendar className="h-4 w-4 text-accent" />
                     </div>
-                    Monthly Overview
+                    Monthly Distance (last 6 months)
                   </h2>
                   <div className="glass-surface rounded-xl p-6">
-                    <div className="space-y-4">
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart
+                        data={[...sortedMonths].reverse().map(([month, d]) => ({
+                          month: new Date(month + "-01").toLocaleDateString("en-US", {
+                            month: "short",
+                            year: "2-digit",
+                          }),
+                          distance: Number(d.distance.toFixed(1)),
+                          activities: d.count,
+                          elevation: Math.round(d.elevation),
+                        }))}
+                        margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="month"
+                          tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                          label={{
+                            value: "km",
+                            angle: -90,
+                            position: "insideLeft",
+                            offset: 10,
+                            fontSize: 11,
+                            fill: "hsl(var(--muted-foreground))",
+                          }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "8px",
+                            fontSize: "12px",
+                          }}
+                          formatter={(value: number, name: string) => {
+                            if (name === "distance") return [`${value} km`, "Distance"];
+                            if (name === "elevation") return [`${value} m`, "Elevation gain"];
+                            return [value, name];
+                          }}
+                        />
+                        <Bar
+                          dataKey="distance"
+                          fill="hsl(var(--accent))"
+                          radius={[4, 4, 0, 0]}
+                          maxBarSize={48}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+
+                    <div className="mt-4 divide-y divide-border/40">
                       {sortedMonths.map(([month, data], i) => {
-                        const pct = (data.distance / maxMonthlyDistance) * 100;
                         const label = new Date(month + "-01").toLocaleDateString("en-US", {
                           month: "long",
                           year: "numeric",
                         });
                         return (
-                          <motion.div key={month} {...fadeIn(0.5 + i * 0.05)}>
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-semibold text-foreground">{label}</p>
-                                {i === 0 && (
-                                  <Badge className="text-[10px] font-medium bg-accent/10 text-accent border-accent/20 px-1.5 py-0.5">
-                                    Current
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <span className="font-mono-data">
-                                  {data.count} {data.count === 1 ? "activity" : "activities"}
-                                </span>
-                                <span className="font-mono-data font-medium text-foreground">
-                                  {data.distance.toFixed(1)} km
-                                </span>
-                              </div>
+                          <div key={month} className="flex items-center justify-between py-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-foreground font-medium">{label}</span>
+                              {i === 0 && (
+                                <Badge className="text-[9px] font-medium bg-accent/10 text-accent border-accent/20 px-1.5 py-0 h-4">
+                                  Current
+                                </Badge>
+                              )}
                             </div>
-                            <div className="h-3 bg-muted rounded-full overflow-hidden">
-                              <motion.div
-                                className="h-full bg-gradient-to-r from-accent to-accent/70 rounded-full"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${pct}%` }}
-                                transition={{ delay: 0.6 + i * 0.1, duration: 0.6, ease: "easeOut" }}
-                              />
-                            </div>
-                            <div className="flex items-center gap-4 mt-1.5 text-[11px] text-muted-foreground">
-                              <span>
-                                {Math.floor(data.duration / 3600)}h {Math.floor((data.duration % 3600) / 60)}m total
+                            <div className="flex items-center gap-4 text-muted-foreground">
+                              <span>{data.count} {data.count === 1 ? "activity" : "activities"}</span>
+                              <span className="font-mono-data font-medium text-foreground w-16 text-right">
+                                {data.distance.toFixed(1)} km
                               </span>
-                              <span>{data.elevation.toFixed(0)} m elevation</span>
                             </div>
-                          </motion.div>
+                          </div>
                         );
                       })}
                     </div>
+                  </div>
+                </motion.section>
+              )}
+
+              {Object.keys(sportBreakdown).length > 1 && (
+                <motion.section {...fadeIn(0.55)}>
+                  <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <div className="section-icon-bg">
+                      <Flame className="h-4 w-4 text-accent" />
+                    </div>
+                    Sport Distribution
+                  </h2>
+                  <div className="glass-surface rounded-xl p-6">
+                    <ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        <Pie
+                          data={Object.entries(sportBreakdown).map(([sport, d]) => ({
+                            name: sport.charAt(0).toUpperCase() + sport.slice(1),
+                            value: Number(d.distance.toFixed(1)),
+                            count: d.count,
+                          }))}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={3}
+                          dataKey="value"
+                          label={({ name, percent }) =>
+                            `${name} ${(percent * 100).toFixed(0)}%`
+                          }
+                          labelLine={false}
+                        >
+                          {Object.keys(sportBreakdown).map((sport, index) => (
+                            <Cell
+                              key={sport}
+                              fill={
+                                sport === "cycling"
+                                  ? "hsl(var(--accent))"
+                                  : sport === "running"
+                                  ? "hsl(var(--success))"
+                                  : "hsl(var(--warning))"
+                              }
+                              opacity={0.85 - index * 0.05}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "8px",
+                            fontSize: "12px",
+                          }}
+                          formatter={(value: number, name: string, props) => [
+                            `${value} km (${props.payload.count} activities)`,
+                            name,
+                          ]}
+                        />
+                        <Legend
+                          formatter={(value) => (
+                            <span style={{ fontSize: "12px", color: "hsl(var(--foreground))" }}>
+                              {value}
+                            </span>
+                          )}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
                 </motion.section>
               )}

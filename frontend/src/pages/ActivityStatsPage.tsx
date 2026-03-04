@@ -7,9 +7,18 @@ import { activityService } from "@/services/activityService";
 import { ActivityStatistics } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, ArrowLeft, MapPin, BarChart3, Bike, Footprints, Dumbbell, Calendar } from "lucide-react";
+import { Download, ArrowLeft, MapPin, BarChart3, Bike, Footprints, Dumbbell, Calendar, HeartPulse } from "lucide-react";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+  LineChart,
+  Line,
 } from "recharts";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Tooltip as MapTooltip, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -49,6 +58,21 @@ export default function ActivityStatsPage() {
     if (!elevationData.length) return 0;
     return elevationData.reduce((sum, d) => sum + d.elevation, 0) / elevationData.length;
   }, [elevationData]);
+
+  const hrData = useMemo(() => {
+    if (!activity?.elevationProfile?.length) return [];
+    const withHr = activity.elevationProfile.filter((p) => p.hr && p.hr > 0);
+    if (withHr.length < 5) return [];
+    const step = Math.max(1, Math.floor(withHr.length / 200));
+    return withHr
+      .filter((_, i) => i % step === 0 || i === withHr.length - 1)
+      .map((p) => ({ distance: p.distance, hr: p.hr! }));
+  }, [activity]);
+
+  const avgHr = useMemo(() => {
+    if (!hrData.length) return 0;
+    return Math.round(hrData.reduce((s, d) => s + d.hr, 0) / hrData.length);
+  }, [hrData]);
 
   const mapPositions = useMemo<[number, number][]>(() => {
     if (!activity?.coordinates?.length) return [];
@@ -133,7 +157,6 @@ export default function ActivityStatsPage() {
     <AppShell>
       <PageTransition>
         <div className="space-y-8">
-          {/* Hero header */}
           <div className="rounded-xl border border-border bg-card overflow-hidden relative">
             <div className="h-1.5 bg-gradient-to-r from-accent via-accent/60 to-accent/20" />
             <div className="flex items-center gap-3 p-6">
@@ -159,7 +182,6 @@ export default function ActivityStatsPage() {
             </div>
           </div>
 
-          {/* Key metrics - first 2 larger with top accent, rest with left border */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {metrics.slice(0, 2).map((m) => (
               <div key={m.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-sm transition-shadow accent-line-top">
@@ -189,7 +211,6 @@ export default function ActivityStatsPage() {
             ))}
           </div>
 
-          {/* Elevation Profile Chart */}
           <section>
             <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
               <div className="section-icon-bg">
@@ -263,7 +284,91 @@ export default function ActivityStatsPage() {
             </div>
           </section>
 
-          {/* Route Map */}
+          {hrData.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+                <div className="section-icon-bg bg-destructive/10">
+                  <HeartPulse className="h-4 w-4 text-destructive" />
+                </div>
+                <div>
+                  <span>Heart Rate</span>
+                  <p className="text-xs text-muted-foreground font-normal">
+                    Avg {avgHr} bpm · Max {activity.maxHeartRate} bpm
+                  </p>
+                </div>
+              </h2>
+              <div className="rounded-xl border border-border bg-card p-4 accent-line-top">
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={hrData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="hrGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="distance"
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      tickFormatter={(v: number) => `${v.toFixed(1)}`}
+                      label={{
+                        value: "km",
+                        position: "insideBottomRight",
+                        offset: -5,
+                        fontSize: 11,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                    />
+                    <YAxis
+                      domain={["auto", "auto"]}
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      label={{
+                        value: "bpm",
+                        angle: -90,
+                        position: "insideLeft",
+                        offset: 10,
+                        fontSize: 11,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                      }}
+                      formatter={(value: number) => [`${value} bpm`, "Heart Rate"]}
+                      labelFormatter={(label: number) => `${label.toFixed(2)} km`}
+                    />
+                    {avgHr > 0 && (
+                      <ReferenceLine
+                        y={avgHr}
+                        stroke="hsl(var(--muted-foreground))"
+                        strokeDasharray="4 4"
+                        strokeOpacity={0.6}
+                        label={{
+                          value: `Avg ${avgHr} bpm`,
+                          position: "insideTopRight",
+                          fontSize: 10,
+                          fill: "hsl(var(--muted-foreground))",
+                        }}
+                      />
+                    )}
+                    <Line
+                      type="monotone"
+                      dataKey="hr"
+                      stroke="hsl(var(--destructive))"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          )}
+
           <section>
             <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
               <div className="section-icon-bg">
@@ -307,7 +412,6 @@ export default function ActivityStatsPage() {
             </div>
           </section>
 
-          {/* Export */}
           <section>
             <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
               <div className="section-icon-bg">

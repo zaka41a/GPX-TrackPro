@@ -8,7 +8,18 @@ import { CommunityPost } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { UserAvatar } from "@/components/UserAvatar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Users, Pin, Send, MessageSquare, Trash2, Loader2, Search, ShieldOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +52,15 @@ export default function CommunityFeedPage() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [newContent, setNewContent] = useState("");
   const [posting, setPosting] = useState(false);
+
+  // Delete dialog
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Ban dialog
+  const [banTarget, setBanTarget] = useState<{ id: number; name: string } | null>(null);
+  const [banReason, setBanReason] = useState("");
+  const [banning, setBanning] = useState(false);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -98,13 +118,17 @@ export default function CommunityFeedPage() {
     }
   };
 
-  const handleDelete = async (postId: number) => {
-    if (!confirm("Delete this post?")) return;
+  const confirmDelete = async () => {
+    if (deleteTarget === null) return;
+    setDeleting(true);
     try {
-      await communityService.deletePost(postId);
+      await communityService.deletePost(deleteTarget);
       await fetchPosts();
     } catch {
       // silently fail
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -123,14 +147,18 @@ export default function CommunityFeedPage() {
     fetchPosts(nextCursor, debouncedSearch);
   };
 
-  const handleBan = async (authorId: number, authorName: string) => {
-    const reason = prompt(`Ban reason for ${authorName} (optional):`);
-    if (reason === null) return; // cancelled
+  const confirmBan = async () => {
+    if (!banTarget) return;
+    setBanning(true);
     try {
-      await communityService.banUser(authorId, reason.trim());
+      await communityService.banUser(banTarget.id, banReason.trim());
       await fetchPosts();
     } catch {
       // silently fail
+    } finally {
+      setBanning(false);
+      setBanTarget(null);
+      setBanReason("");
     }
   };
 
@@ -248,12 +276,23 @@ export default function CommunityFeedPage() {
                             </Button>
                           )}
                           {isAdmin && post.authorId !== currentUserId && (
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleBan(post.authorId, post.authorName)} title="Ban user">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => { setBanTarget({ id: post.authorId, name: post.authorName }); setBanReason(""); }}
+                              title="Ban user"
+                            >
                               <ShieldOff className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {(post.authorId === currentUserId || isAdmin) && (
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(post.id)}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => setDeleteTarget(post.id)}
+                            >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
@@ -317,6 +356,53 @@ export default function CommunityFeedPage() {
             </>
           )}
         </div>
+
+        {/* Delete Post Confirm Dialog */}
+        <ConfirmDialog
+          open={deleteTarget !== null}
+          onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+          title="Delete this post?"
+          description="This will permanently delete the post and all its comments. This action cannot be undone."
+          confirmLabel={deleting ? "Deleting…" : "Delete Post"}
+          variant="destructive"
+          onConfirm={confirmDelete}
+        />
+
+        {/* Ban User Dialog (with reason input) */}
+        <AlertDialog open={banTarget !== null} onOpenChange={(open) => { if (!open) { setBanTarget(null); setBanReason(""); } }}>
+          <AlertDialogContent className="glass-surface border-border sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Ban {banTarget?.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This user will no longer be able to participate in the community.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-1">
+              <Label htmlFor="ban-reason-feed" className="text-sm font-medium text-foreground">
+                Reason <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="ban-reason-feed"
+                placeholder="e.g. Repeated spam, harassment…"
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                className="mt-1.5"
+                autoFocus
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => { setBanTarget(null); setBanReason(""); }}>Cancel</AlertDialogCancel>
+              <Button
+                variant="destructive"
+                onClick={(e) => { e.preventDefault(); confirmBan(); }}
+                disabled={banning}
+              >
+                {banning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldOff className="h-4 w-4 mr-2" />}
+                Ban User
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </PageTransition>
     </AppShell>
   );

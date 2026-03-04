@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"math"
 	"strings"
 	"time"
 )
@@ -190,7 +191,6 @@ func (s *Store) UpdateUserStatus(ctx context.Context, adminID, targetUserID int6
 		return err
 	}
 
-	// When approving a user, create a 7-day trial subscription
 	if status == "approved" {
 		_, err := tx.Exec(ctx, `
 			INSERT INTO subscriptions (user_id, status, period_start, period_end, activated_by)
@@ -293,12 +293,28 @@ func (s *Store) ListApprovedUsers(ctx context.Context, page, pageSize int) (Pagi
 	return newPaginated(list, total, page, pageSize), nil
 }
 
-// ListApprovedUserIDs returns the IDs of all approved users except excludeUserID.
 func (s *Store) ListApprovedUserIDs(ctx context.Context, excludeUserID int64) ([]int64, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id FROM users WHERE status::text = 'approved' AND id != $1`,
 		excludeUserID,
 	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (s *Store) GetAdminIDs(ctx context.Context) ([]int64, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id FROM users WHERE role = 'admin'`)
 	if err != nil {
 		return nil, err
 	}
@@ -348,6 +364,27 @@ func (s *Store) UnlinkGoogle(ctx context.Context, userID int64) error {
 		userID,
 	)
 	return err
+}
+
+type PublicStats struct {
+	Users      int     `json:"users"`
+	Activities int     `json:"activities"`
+	TotalKm    float64 `json:"totalKm"`
+}
+
+func (s *Store) GetPublicStats(ctx context.Context) (PublicStats, error) {
+	var stats PublicStats
+	err := s.pool.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(*) FROM users WHERE status = 'approved') AS users,
+			(SELECT COUNT(*) FROM activities) AS activities,
+			COALESCE((SELECT SUM(distance_km) FROM activities), 0) AS total_km
+	`).Scan(&stats.Users, &stats.Activities, &stats.TotalKm)
+	if err != nil {
+		return PublicStats{}, err
+	}
+	stats.TotalKm = math.Round(stats.TotalKm*10) / 10
+	return stats, nil
 }
 
 func itoa(v int) string {

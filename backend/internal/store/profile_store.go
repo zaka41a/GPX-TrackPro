@@ -26,8 +26,15 @@ type AthleteProfile struct {
 	WeeklyGoalHours *float64  `json:"weeklyGoalHours"`
 	AvatarURL       string    `json:"avatarUrl"`
 	SportPhotoURL   string    `json:"sportPhotoUrl"`
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
+	// Social / professional links
+	WebsiteURL   string `json:"websiteUrl"`
+	StravaURL    string `json:"stravaUrl"`
+	InstagramURL string `json:"instagramUrl"`
+	TwitterURL   string `json:"twitterUrl"`
+	YoutubeURL   string `json:"youtubeUrl"`
+	LinkedinURL  string `json:"linkedinUrl"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 // GetProfile returns the athlete profile for the given user. If no profile row
@@ -49,6 +56,12 @@ func (s *Store) GetProfile(ctx context.Context, userID int64) (AthleteProfile, e
 			ap.weekly_goal_hours,
 			COALESCE(u.avatar_url, ''),
 			COALESCE(ap.sport_photo_url, ''),
+			COALESCE(ap.website_url, ''),
+			COALESCE(ap.strava_url, ''),
+			COALESCE(ap.instagram_url, ''),
+			COALESCE(ap.twitter_url, ''),
+			COALESCE(ap.youtube_url, ''),
+			COALESCE(ap.linkedin_url, ''),
 			ap.created_at,
 			ap.updated_at
 		FROM athlete_profiles ap
@@ -64,6 +77,8 @@ func (s *Store) GetProfile(ctx context.Context, userID int64) (AthleteProfile, e
 		&p.PrimarySport, &p.SecondarySports,
 		&p.ExperienceLevel, &p.WeeklyGoalHours,
 		&p.AvatarURL, &p.SportPhotoURL,
+		&p.WebsiteURL, &p.StravaURL, &p.InstagramURL,
+		&p.TwitterURL, &p.YoutubeURL, &p.LinkedinURL,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -121,27 +136,35 @@ func (s *Store) UpsertProfile(ctx context.Context, userID int64, p AthleteProfil
 		INSERT INTO athlete_profiles (
 			user_id, bio, phone, date_of_birth, gender, country, city,
 			height_cm, weight_kg, primary_sport, secondary_sports,
-			experience_level, weekly_goal_hours, sport_photo_url
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+			experience_level, weekly_goal_hours, sport_photo_url,
+			website_url, strava_url, instagram_url, twitter_url, youtube_url, linkedin_url
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
 		ON CONFLICT (user_id) DO UPDATE SET
-			bio              = EXCLUDED.bio,
-			phone            = EXCLUDED.phone,
-			date_of_birth    = EXCLUDED.date_of_birth,
-			gender           = EXCLUDED.gender,
-			country          = EXCLUDED.country,
-			city             = EXCLUDED.city,
-			height_cm        = EXCLUDED.height_cm,
-			weight_kg        = EXCLUDED.weight_kg,
-			primary_sport    = EXCLUDED.primary_sport,
-			secondary_sports = EXCLUDED.secondary_sports,
-			experience_level = EXCLUDED.experience_level,
+			bio               = EXCLUDED.bio,
+			phone             = EXCLUDED.phone,
+			date_of_birth     = EXCLUDED.date_of_birth,
+			gender            = EXCLUDED.gender,
+			country           = EXCLUDED.country,
+			city              = EXCLUDED.city,
+			height_cm         = EXCLUDED.height_cm,
+			weight_kg         = EXCLUDED.weight_kg,
+			primary_sport     = EXCLUDED.primary_sport,
+			secondary_sports  = EXCLUDED.secondary_sports,
+			experience_level  = EXCLUDED.experience_level,
 			weekly_goal_hours = EXCLUDED.weekly_goal_hours,
-			sport_photo_url  = EXCLUDED.sport_photo_url,
-			updated_at       = now()
+			sport_photo_url   = EXCLUDED.sport_photo_url,
+			website_url       = EXCLUDED.website_url,
+			strava_url        = EXCLUDED.strava_url,
+			instagram_url     = EXCLUDED.instagram_url,
+			twitter_url       = EXCLUDED.twitter_url,
+			youtube_url       = EXCLUDED.youtube_url,
+			linkedin_url      = EXCLUDED.linkedin_url,
+			updated_at        = now()
 	`,
 		userID, p.Bio, p.Phone, dob, p.Gender, p.Country, p.City,
 		p.Height, p.Weight, p.PrimarySport, p.SecondarySports,
 		p.ExperienceLevel, p.WeeklyGoalHours, p.SportPhotoURL,
+		p.WebsiteURL, p.StravaURL, p.InstagramURL, p.TwitterURL, p.YoutubeURL, p.LinkedinURL,
 	)
 	if err != nil {
 		return AthleteProfile{}, err

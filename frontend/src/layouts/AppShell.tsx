@@ -83,10 +83,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const { data: subscription } = useMySubscription();
 
-  // Block access when subscription is confirmed inactive.
-  // null = endpoint not available (old backend) → don't block
-  // undefined = still loading → don't block
-  // {isActive:false} = definitive inactive subscription → block (except on /settings)
   const settingsPath = location.pathname === "/settings";
   const isBlocked =
     user?.role !== "admin" &&
@@ -114,10 +110,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* Logo */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-border shrink-0">
           <Link to={user?.role === "admin" ? "/admin" : "/dashboard"} className="flex items-center gap-3.5">
-            <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-10 w-10 rounded-xl object-cover" />
+            <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-12 w-12 rounded-xl object-cover" />
             <span className="text-xl font-bold tracking-tight text-foreground">GPX TrackPro</span>
           </Link>
           <button
@@ -129,7 +124,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 px-4 py-5 space-y-1.5 overflow-y-auto">
           {user?.role === "admin" ? (
             <>
@@ -221,7 +215,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        {/* User section */}
         <div className="p-5 border-t border-border mt-auto">
           <div className="flex items-center gap-3.5 mb-4 px-2">
             <div className="relative shrink-0">

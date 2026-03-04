@@ -1,16 +1,41 @@
 version: "3.9"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GPX TrackPro — docker-compose.yml  (DEV / local)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# DÉMARRAGE RAPIDE :
+#   cp .env.example .env      ← copier et remplir les variables
+#   docker compose up --build  ← build + démarrage
+#
+# URLs locales :
+#   Frontend  →  http://localhost:8081
+#   Backend   →  http://localhost:8083
+#   DB        →  localhost:5432  (user: gpx, db: gpx_training_analyzer)
+#
+# FONCTIONNALITÉS OPTIONNELLES (à activer dans .env) :
+#   - Mot de passe oublié  →  SMTP_HOST + SMTP_*
+#   - Google OAuth         →  GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET
+#   - Stripe (paiement)    →  STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET + STRIPE_PRICE_ID_*
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: gpx_training_analyzer
-      POSTGRES_USER: gpx
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-gpx_secret}
+      POSTGRES_DB:       gpx_training_analyzer
+      POSTGRES_USER:     gpx
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gpx_secret}   # changer en prod
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Les migrations SQL sont exécutées automatiquement au 1er démarrage
       - ./backend/migrations:/docker-entrypoint-initdb.d
+    # Port exposé en local pour les outils DB (DBeaver, psql…)
+    # En prod, utiliser docker-compose.prod.yml qui supprime cette exposition
     ports:
       - "5432:5432"
     healthcheck:
@@ -19,26 +44,97 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Backend Go ───────────────────────────────────────────────────────────────
   backend:
     build: ./backend
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgres://gpx:${DB_PASSWORD:-gpx_secret}@db:5432/gpx_training_analyzer?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      PORT: "8080"
     ports:
-      - "8083:8080"
+      - "8083:8080"   # API accessible sur http://localhost:8083
+    environment:
 
+      # ── Base ──────────────────────────────────────────────────────────────
+      DATABASE_URL: postgres://gpx:${DB_PASSWORD:-gpx_secret}@db:5432/gpx_training_analyzer?sslmode=disable
+      PORT: "8080"
+      GO_ENV: ${GO_ENV:-development}   # "production" active les vérifications strictes JWT
+
+      # JWT — clé de signature des tokens d'authentification
+      # Minimum 32 caractères aléatoires.  Générer : openssl rand -hex 32
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars}
+
+      # CORS — origines autorisées (séparées par virgule)
+      # Laisser vide en dev → accepte tout (*).  En prod : https://mondomaine.com
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+
+      # URL du frontend (utilisée dans les liens email)
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+
+      # ── Mot de passe oublié / Vérification email (SMTP) ───────────────────
+      # Sans SMTP → les liens sont simplement loggés dans la console du backend.
+      # Fournisseurs compatibles : Mailgun, Postmark, SendGrid, OVH Mail Pro…
+      #
+      #   SMTP_HOST=smtp.mailgun.org
+      #   SMTP_PORT=587
+      #   SMTP_USER=postmaster@mondomaine.com
+      #   SMTP_PASS=motdepasse
+      #   SMTP_FROM=GPX TrackPro <noreply@mondomaine.com>
+      SMTP_HOST:  ${SMTP_HOST:-}
+      SMTP_PORT:  ${SMTP_PORT:-587}
+      SMTP_USER:  ${SMTP_USER:-}
+      SMTP_PASS:  ${SMTP_PASS:-}
+      SMTP_FROM:  ${SMTP_FROM:-}
+
+      # ── Google OAuth (optionnel) ───────────────────────────────────────────
+      # Permet aux utilisateurs de lier leur compte Google.
+      # 1. Aller sur https://console.cloud.google.com
+      # 2. Créer un projet → APIs & Services → Credentials → OAuth 2.0 Client ID
+      # 3. Type : Web application
+      # 4. Authorized redirect URI : http://localhost:8083/auth/google/callback  (dev)
+      #                              https://mondomaine.com/auth/google/callback  (prod)
+      #
+      #   GOOGLE_CLIENT_ID=123456789-xxx.apps.googleusercontent.com
+      #   GOOGLE_CLIENT_SECRET=GOCSPX-xxx
+      GOOGLE_CLIENT_ID:     ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI:  ${GOOGLE_REDIRECT_URI:-http://localhost:8083/auth/google/callback}
+
+      # ── Stripe — Paiements (optionnel) ────────────────────────────────────
+      # Permet les abonnements payants Pro/Premium via Stripe Checkout.
+      # 1. Créer un compte sur https://dashboard.stripe.com
+      # 2. Copier la clé secrète :  Dashboard → Developers → API keys → Secret key
+      # 3. Créer 2 produits (Pro, Premium) avec un Price ID chacun
+      # 4. Webhook : Dashboard → Developers → Webhooks → Add endpoint
+      #    URL : https://mondomaine.com/stripe/webhook
+      #    Events : checkout.session.completed  +  customer.subscription.deleted
+      #
+      # En local → utiliser Stripe CLI pour tester :
+      #   stripe listen --forward-to localhost:8083/stripe/webhook
+      #   (la commande affiche le STRIPE_WEBHOOK_SECRET à copier dans .env)
+      #
+      #   STRIPE_SECRET_KEY=sk_test_...
+      #   STRIPE_WEBHOOK_SECRET=whsec_...
+      #   STRIPE_PRICE_ID_PRO=price_...
+      #   STRIPE_PRICE_ID_PREMIUM=price_...
+      STRIPE_SECRET_KEY:      ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET:  ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_ID_PRO:    ${STRIPE_PRICE_ID_PRO:-}
+      STRIPE_PRICE_ID_PREMIUM: ${STRIPE_PRICE_ID_PREMIUM:-}
+
+  # ── Frontend React ────────────────────────────────────────────────────────
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      # VITE_API_BASE vide = même origin (proxy nginx en prod)
+      # En dev Docker : pointer vers le backend exposé
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-}
     restart: unless-stopped
     depends_on:
       - backend
     ports:
-      - "8081:80"
+      - "8081:80"   # App accessible sur http://localhost:8081
 
 volumes:
-  pgdata:
+  pgdata:   # données PostgreSQL persistantes entre les redémarrages

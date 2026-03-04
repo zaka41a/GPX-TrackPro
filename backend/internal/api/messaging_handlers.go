@@ -60,7 +60,6 @@ func (h *Handler) messagingListMessages(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Verify participant
 	isParticipant, err := h.store.IsConversationParticipant(r.Context(), convoID, user.ID)
 	if err != nil || !isParticipant {
 		writeErrCode(w, http.StatusForbidden, "forbidden", "not a participant of this conversation")
@@ -131,7 +130,6 @@ func (h *Handler) messagingSendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusCreated, msg)
 
-	// Notify the recipient asynchronously — failure is non-fatal.
 	go func() {
 		recipientID, err := h.store.GetConversationOtherUserID(context.Background(), convoID, user.ID)
 		if err != nil {
@@ -238,14 +236,10 @@ func (h *Handler) messagingDeleteConversation(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, map[string]string{"message": "conversation deleted"})
 }
 
-// parseConversationID extracts the conversation ID from paths like:
-// /api/messages/conversations/{id}/messages
-// /api/messages/conversations/{id}/read
 func parseConversationID(path, suffix string) (int64, error) {
 	raw := strings.TrimPrefix(path, "/api/messages/conversations/")
 	raw = strings.TrimSuffix(raw, "/"+strings.TrimPrefix(suffix, "/"))
 	raw = strings.Trim(raw, "/")
-	// Take just the first segment (the ID)
 	parts := strings.Split(raw, "/")
 	return strconv.ParseInt(parts[0], 10, 64)
 }

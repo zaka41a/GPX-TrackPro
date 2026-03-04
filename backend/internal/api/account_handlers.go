@@ -18,7 +18,6 @@ import (
 	"gpx-training-analyzer/backend/internal/auth"
 )
 
-// PUT /api/account/email
 func (h *Handler) changeEmail(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireApprovedUser(w, r)
 	if !ok {
@@ -59,7 +58,6 @@ func (h *Handler) changeEmail(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"message": "email updated"})
 }
 
-// PUT /api/account/password
 func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireApprovedUser(w, r)
 	if !ok {
@@ -95,7 +93,6 @@ func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"message": "password updated"})
 }
 
-// GET /auth/google/link — generate OAuth URL with signed state
 func (h *Handler) googleLinkStart(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireApprovedUser(w, r)
 	if !ok {
@@ -132,7 +129,6 @@ func (h *Handler) googleLinkStart(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"url": authURL})
 }
 
-// GET /auth/google/callback — exchange code, verify state, link account
 func (h *Handler) googleLinkCallback(w http.ResponseWriter, r *http.Request) {
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
@@ -150,7 +146,6 @@ func (h *Handler) googleLinkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify HMAC signature
 	parts := strings.SplitN(state, ".", 2)
 	if len(parts) != 2 {
 		redirect("google=error&msg=invalid+state")
@@ -165,7 +160,6 @@ func (h *Handler) googleLinkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Decode and validate payload
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(payloadB64)
 	if err != nil {
 		redirect("google=error&msg=invalid+state+payload")
@@ -180,7 +174,6 @@ func (h *Handler) googleLinkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Exchange authorization code for access token
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 	redirectURI := os.Getenv("GOOGLE_REDIRECT_URI")
@@ -207,7 +200,6 @@ func (h *Handler) googleLinkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch Google user info
 	req, _ := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v2/userinfo", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenData.AccessToken)
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -228,7 +220,6 @@ func (h *Handler) googleLinkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if this Google account is already linked to a different user
 	existing, err := h.store.GetUserByGoogleID(r.Context(), googleUser.ID)
 	if err == nil && existing.ID != stateData.UID {
 		redirect("google=error&msg=google+account+already+linked")
@@ -244,7 +235,6 @@ func (h *Handler) googleLinkCallback(w http.ResponseWriter, r *http.Request) {
 	redirect("google=linked")
 }
 
-// DELETE /api/account/google
 func (h *Handler) unlinkGoogle(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireApprovedUser(w, r)
 	if !ok {

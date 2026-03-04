@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  db:
+    ports: !override []
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+  backend:
+    ports: !override []
+    environment:
+      DATABASE_URL: postgres://gpx:${DB_PASSWORD}@db:5432/gpx_training_analyzer?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+      GO_ENV: production
+      PORT: "8080"
+      ALLOWED_ORIGINS: "https://${DOMAIN}"
+      FRONTEND_URL: "https://${DOMAIN}"
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: "https://${DOMAIN}/auth/google/callback"
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID_PRO: ${STRIPE_PRICE_ID_PRO}
+      STRIPE_PRICE_ID_PREMIUM: ${STRIPE_PRICE_ID_PREMIUM}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  frontend:
+    ports: !override []
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: "https://${DOMAIN}"
+
+  nginx-certbot:
+    image: jonasal/nginx-certbot:5
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/user_conf.d:ro
+      - nginx_certbot_secrets:/etc/letsencrypt
+      - frontend_static:/usr/share/nginx/html:ro
+    environment:
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL}
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+
+volumes:
+  nginx_certbot_secrets:
+  frontend_static:

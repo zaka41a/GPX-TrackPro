@@ -1,14 +1,16 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// GET /api/account/subscription
 func (h *Handler) getMySubscription(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireApprovedUser(w, r)
 	if !ok {
@@ -29,19 +31,20 @@ func (h *Handler) getMySubscription(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"id":          sub.ID,
-		"status":      sub.Status,
-		"periodStart": sub.PeriodStart,
-		"periodEnd":   sub.PeriodEnd,
-		"notes":       sub.Notes,
-		"activatedBy": sub.ActivatedBy,
-		"createdAt":   sub.CreatedAt,
-		"updatedAt":   sub.UpdatedAt,
-		"isActive":    sub.IsActive(),
+		"id":            sub.ID,
+		"status":        sub.Status,
+		"planName":      sub.PlanName,
+		"requestedPlan": sub.RequestedPlan,
+		"periodStart":   sub.PeriodStart,
+		"periodEnd":     sub.PeriodEnd,
+		"notes":         sub.Notes,
+		"activatedBy":   sub.ActivatedBy,
+		"createdAt":     sub.CreatedAt,
+		"updatedAt":     sub.UpdatedAt,
+		"isActive":      sub.IsActive(),
 	})
 }
 
-// GET /api/admin/subscriptions
 func (h *Handler) adminListSubscriptions(w http.ResponseWriter, r *http.Request) {
 	_, ok := h.requireAdmin(w, r)
 	if !ok {
@@ -58,6 +61,8 @@ func (h *Handler) adminListSubscriptions(w http.ResponseWriter, r *http.Request)
 		ID            int64      `json:"id"`
 		UserID        int64      `json:"userId"`
 		Status        string     `json:"status"`
+		PlanName      string     `json:"planName"`
+		RequestedPlan string     `json:"requestedPlan"`
 		PeriodStart   *time.Time `json:"periodStart"`
 		PeriodEnd     *time.Time `json:"periodEnd"`
 		Notes         string     `json:"notes"`
@@ -76,6 +81,8 @@ func (h *Handler) adminListSubscriptions(w http.ResponseWriter, r *http.Request)
 			ID:            s.ID,
 			UserID:        s.UserID,
 			Status:        s.Status,
+			PlanName:      s.PlanName,
+			RequestedPlan: s.RequestedPlan,
 			PeriodStart:   s.PeriodStart,
 			PeriodEnd:     s.PeriodEnd,
 			Notes:         s.Notes,
@@ -92,7 +99,6 @@ func (h *Handler) adminListSubscriptions(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, result)
 }
 
-// PUT /api/admin/subscriptions/{userID}
 func (h *Handler) adminUpdateSubscription(w http.ResponseWriter, r *http.Request) {
 	_, ok := h.requireAdmin(w, r)
 	if !ok {
@@ -107,8 +113,9 @@ func (h *Handler) adminUpdateSubscription(w http.ResponseWriter, r *http.Request
 	}
 
 	var req struct {
-		Action string `json:"action"` // activate | extend | deactivate
-		Notes  string `json:"notes"`
+		Action   string `json:"action"`
+		Notes    string `json:"notes"`
+		PlanName string `json:"planName"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
@@ -146,8 +153,22 @@ func (h *Handler) adminUpdateSubscription(w http.ResponseWriter, r *http.Request
 	case "deactivate":
 		status = "inactive"
 
+	case "setPlan":
+		valid := map[string]bool{"starter": true, "pro": true, "premium": true}
+		if !valid[req.PlanName] {
+			writeErr(w, http.StatusBadRequest, "planName must be starter, pro or premium")
+			return
+		}
+		if err := h.store.UpdateSubscriptionPlan(r.Context(), userID, req.PlanName); err != nil {
+			writeErr(w, http.StatusInternalServerError, "failed to update plan")
+			return
+		}
+		_ = h.store.ClearRequestedPlan(r.Context(), userID)
+		writeJSON(w, http.StatusOK, map[string]string{"message": "plan updated"})
+		return
+
 	default:
-		writeErr(w, http.StatusBadRequest, "unsupported action: use activate, extend or deactivate")
+		writeErr(w, http.StatusBadRequest, "unsupported action: use activate, extend, deactivate or setPlan")
 		return
 	}
 
@@ -157,4 +178,45 @@ func (h *Handler) adminUpdateSubscription(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "subscription updated"})
+}
+
+func (h *Handler) requestSubscriptionUpgrade(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireApprovedUser(w, r)
+	if !ok {
+		return
+	}
+
+	var req struct {
+		PlanName string `json:"planName"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	valid := map[string]bool{"pro": true, "premium": true}
+	if !valid[req.PlanName] {
+		writeErr(w, http.StatusBadRequest, "planName must be pro or premium")
+		return
+	}
+
+	if err := h.store.SetRequestedPlan(r.Context(), user.ID, req.PlanName); err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to save upgrade request")
+		return
+	}
+
+	adminIDs, err := h.store.GetAdminIDs(r.Context())
+	if err != nil {
+		slog.Error("failed to get admin IDs for notification", "err", err)
+		writeJSON(w, http.StatusOK, map[string]string{"message": "upgrade request sent"})
+		return
+	}
+
+	fullName := user.FirstName + " " + user.LastName
+	title := fmt.Sprintf("Plan upgrade request: %s → %s", fullName, req.PlanName)
+	body := fmt.Sprintf("%s (%s) has requested an upgrade to the %s plan.", fullName, user.Email, req.PlanName)
+	for _, adminID := range adminIDs {
+		_ = h.store.CreateNotification(context.Background(), adminID, title, body)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "upgrade request sent"})
 }

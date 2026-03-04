@@ -3,13 +3,16 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"gpx-training-analyzer/backend/internal/gpx"
 	"gpx-training-analyzer/backend/internal/metrics"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -25,6 +28,13 @@ type Activity struct {
 	CreatedAt    time.Time      `json:"createdAt"`
 }
 
+var (
+	errTokenAlreadyUsed = errors.New("token already used")
+	errTokenExpired     = errors.New("token expired")
+	ErrTokenAlreadyUsed = errTokenAlreadyUsed
+	ErrTokenExpired     = errTokenExpired
+)
+
 type Store struct {
 	pool *pgxpool.Pool
 }
@@ -34,7 +44,18 @@ func New(ctx context.Context) (*Store, error) {
 	if dsn == "" {
 		dsn = "postgres://postgres:postgres@localhost:5432/gpx_training_analyzer?sslmode=disable"
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse db config: %w", err)
+	}
+
+	config.MaxConns = envInt32("DB_MAX_CONNS", 25)
+	config.MinConns = envInt32("DB_MIN_CONNS", 2)
+	config.MaxConnLifetime = envDuration("DB_MAX_CONN_LIFETIME", 30*time.Minute)
+	config.MaxConnIdleTime = envDuration("DB_MAX_CONN_IDLE_TIME", 5*time.Minute)
+
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect db: %w", err)
 	}
@@ -48,12 +69,44 @@ func (s *Store) Close() {
 	s.pool.Close()
 }
 
-// Ping checks that the database is reachable.
 func (s *Store) Ping(ctx context.Context) error {
 	return s.pool.Ping(ctx)
 }
 
-// PaginatedResult is a generic container for paginated list responses.
+func (s *Store) PoolStats() *pgxpool.Stat {
+	return s.pool.Stat()
+}
+
+func (s *Store) WithTx(ctx context.Context, fn func(pgx.Tx) error) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func envInt32(key string, defaultVal int32) int32 {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return int32(n)
+		}
+	}
+	return defaultVal
+}
+
+func envDuration(key string, defaultVal time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return defaultVal
+}
+
 type PaginatedResult[T any] struct {
 	Items      []T `json:"items"`
 	Total      int `json:"total"`
@@ -240,4 +293,18 @@ func (s *Store) ListActivities(ctx context.Context, userID int64, page, pageSize
 		return PaginatedResult[Activity]{}, err
 	}
 	return newPaginated(activities, total, page, pageSize), nil
+}
+
+type UserPublicStats struct {
+	ActivityCount   int     `json:"activityCount"`
+	TotalDistanceKm float64 `json:"totalDistanceKm"`
+}
+
+func (s *Store) GetUserPublicStats(ctx context.Context, userID int64) (UserPublicStats, error) {
+	var st UserPublicStats
+	err := s.pool.QueryRow(ctx,
+		`SELECT COUNT(*), COALESCE(SUM(distance_km), 0) FROM activities WHERE user_id = $1`,
+		userID,
+	).Scan(&st.ActivityCount, &st.TotalDistanceKm)
+	return st, err
 }

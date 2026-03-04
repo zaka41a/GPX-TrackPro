@@ -1,4 +1,4 @@
-import { AthleteProfile } from "@/types";
+import { AthleteProfile, PublicProfile } from "@/types";
 import { apiFetch } from "./api";
 
 const STORAGE_PREFIX = "gpx_athlete_profile_";
@@ -89,6 +89,10 @@ export const profileService = {
       }
       return { ...defaultProfile };
     }
+  },
+
+  async getPublicProfile(userId: number): Promise<PublicProfile> {
+    return apiFetch<PublicProfile>(`/api/users/${userId}/profile`, undefined, true);
   },
 
   async saveProfile(profile: AthleteProfile): Promise<void> {

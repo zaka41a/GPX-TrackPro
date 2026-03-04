@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/UserAvatar";
-import { Users, UserCheck, UserX, Clock, CheckCircle, XCircle, Trash2, Shield, MessageSquare, CreditCard, ArrowRight } from "lucide-react";
+import { Users, UserCheck, UserX, Clock, CheckCircle, XCircle, Trash2, Shield, MessageSquare, CreditCard, ArrowRight, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 
@@ -79,6 +79,13 @@ export default function AdminDashboard() {
   const recentSubs = subscriptions.slice(-3).reverse();
   const recentBans = bans.slice(-3).reverse();
 
+  const expiringSoonCount = subscriptions.filter((s) => {
+    if (s.status !== "active" && s.status !== "trial") return false;
+    if (!s.periodEnd) return false;
+    const days = Math.ceil((new Date(s.periodEnd).getTime() - Date.now()) / 86_400_000);
+    return days >= 0 && days <= 7;
+  }).length;
+
   return (
     <AppShell>
       <PageTransition>
@@ -88,11 +95,10 @@ export default function AdminDashboard() {
             <p className="text-sm text-muted-foreground">Overview of users, subscriptions and community</p>
           </div>
 
-          {/* KPIs */}
           {loading ? (
             <SkeletonKpiRow />
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
               <KpiCard title="Total Users" value={stats?.totalUsers ?? null} icon={<Users className="h-5 w-5" />} iconBg="bg-accent/10 text-accent" />
               <KpiCard title="Pending" value={stats?.pendingUsers ?? null} icon={<Clock className="h-5 w-5" />} iconBg="bg-warning/10 text-warning" />
               <KpiCard title="Approved" value={stats?.approvedUsers ?? null} icon={<UserCheck className="h-5 w-5" />} iconBg="bg-success/10 text-success" />
@@ -103,10 +109,15 @@ export default function AdminDashboard() {
                 icon={<CreditCard className="h-5 w-5" />}
                 iconBg="bg-success/10 text-success"
               />
+              <KpiCard
+                title="Expiring ≤7d"
+                value={expiringSoonCount}
+                icon={<AlertTriangle className="h-5 w-5" />}
+                iconBg={expiringSoonCount > 0 ? "bg-warning/10 text-warning" : "bg-muted text-muted-foreground"}
+              />
             </div>
           )}
 
-          {/* Recent Users */}
           <section>
             <div className="flex items-center gap-3 mb-4">
               <div className="section-icon-bg">
@@ -129,7 +140,6 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <>
-                {/* Desktop */}
                 <div className="glass-surface rounded-xl overflow-hidden hidden md:block">
                   <Table>
                     <TableHeader>
@@ -176,7 +186,6 @@ export default function AdminDashboard() {
                   </Table>
                 </div>
 
-                {/* Mobile */}
                 <div className="md:hidden space-y-3">
                   {recentUsers.map((u) => (
                     <div key={u.id} className="glass-card rounded-xl p-4 accent-line-left">
@@ -215,7 +224,6 @@ export default function AdminDashboard() {
             )}
           </section>
 
-          {/* Recent Subscriptions */}
           <section>
             <div className="flex items-center gap-3 mb-4">
               <div className="section-icon-bg">
@@ -246,7 +254,6 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <>
-                {/* Desktop */}
                 <div className="glass-surface rounded-xl overflow-hidden hidden md:block">
                   <Table>
                     <TableHeader>
@@ -286,7 +293,6 @@ export default function AdminDashboard() {
                   </Table>
                 </div>
 
-                {/* Mobile */}
                 <div className="md:hidden space-y-3">
                   {recentSubs.map((s) => (
                     <div key={s.id} className="glass-card rounded-xl p-4 accent-line-left">
@@ -312,7 +318,6 @@ export default function AdminDashboard() {
             )}
           </section>
 
-          {/* Recent Bans */}
           <section>
             <div className="flex items-center gap-3 mb-4">
               <div className="section-icon-bg">

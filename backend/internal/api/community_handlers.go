@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-// ---------- Posts ----------
-
 func (h *Handler) communityListPosts(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
@@ -92,7 +90,6 @@ func (h *Handler) communityCreatePost(w http.ResponseWriter, r *http.Request) {
 	post.AuthorName = user.FirstName + " " + user.LastName
 	writeJSON(w, http.StatusCreated, post)
 
-	// Notify all other approved users asynchronously — failure is non-fatal.
 	go func() {
 		ids, err := h.store.ListApprovedUserIDs(context.Background(), user.ID)
 		if err != nil {
@@ -130,7 +127,6 @@ func (h *Handler) communityGetPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load reactions for this single post
 	reactions, err := h.store.LoadReactionsForPosts(r.Context(), []int64{id}, user.ID)
 	if err == nil {
 		if r, ok := reactions[id]; ok {
@@ -162,7 +158,6 @@ func (h *Handler) communityDeletePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only author or admin can delete
 	authorID, err := h.store.GetPostAuthorID(r.Context(), id)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "post not found")
@@ -179,8 +174,6 @@ func (h *Handler) communityDeletePost(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "post deleted"})
 }
-
-// ---------- Comments ----------
 
 func (h *Handler) communityAddComment(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireSubscribedUser(w, r)
@@ -227,7 +220,6 @@ func (h *Handler) communityAddComment(w http.ResponseWriter, r *http.Request) {
 	}
 	comment.AuthorName = user.FirstName + " " + user.LastName
 
-	// Notify the post author (skip if commenter is the author)
 	if authorID, err := h.store.GetPostAuthorID(r.Context(), postID); err == nil && authorID != user.ID {
 		_ = h.store.CreateNotification(r.Context(), authorID,
 			"New comment on your post",
@@ -268,8 +260,6 @@ func (h *Handler) communityDeleteComment(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]string{"message": "comment deleted"})
 }
 
-// ---------- Reactions ----------
-
 func (h *Handler) communityToggleReaction(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireSubscribedUser(w, r)
 	if !ok {
@@ -301,8 +291,6 @@ func (h *Handler) communityToggleReaction(w http.ResponseWriter, r *http.Request
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"added": added})
 }
-
-// ---------- Pin ----------
 
 func (h *Handler) communityPinPost(w http.ResponseWriter, r *http.Request) {
 	_, ok := h.requireAdmin(w, r)
@@ -336,8 +324,6 @@ func (h *Handler) communityPinPost(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "post updated"})
 }
-
-// ---------- Bans ----------
 
 func (h *Handler) communityBanUser(w http.ResponseWriter, r *http.Request) {
 	admin, ok := h.requireAdmin(w, r)
@@ -399,8 +385,6 @@ func (h *Handler) communityListBans(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, bans)
 }
 
-// ---------- Path helpers ----------
-
 func parsePostID(path string) (int64, error) {
 	raw := strings.TrimPrefix(path, "/api/community/posts/")
 	raw = strings.Split(strings.Trim(raw, "/"), "/")[0]
@@ -408,7 +392,6 @@ func parsePostID(path string) (int64, error) {
 }
 
 func parseCommentPostID(path string) (int64, error) {
-	// /api/community/posts/{id}/comments
 	raw := strings.TrimPrefix(path, "/api/community/posts/")
 	parts := strings.Split(strings.Trim(raw, "/"), "/")
 	if len(parts) < 1 {
@@ -418,7 +401,6 @@ func parseCommentPostID(path string) (int64, error) {
 }
 
 func parseReactionPostID(path string) (int64, error) {
-	// /api/community/posts/{id}/reactions
 	raw := strings.TrimPrefix(path, "/api/community/posts/")
 	parts := strings.Split(strings.Trim(raw, "/"), "/")
 	if len(parts) < 1 {

@@ -41,7 +41,7 @@ function mapActivity(a: BackendActivity): Activity {
   };
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8080";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 export const uploadService = {
   async uploadGPX(file: File, sportType: SportType, onProgress: (pct: number) => void): Promise<Activity> {

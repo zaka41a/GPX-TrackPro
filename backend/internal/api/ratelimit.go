@@ -6,12 +6,11 @@ import (
 	"time"
 )
 
-// tokenBucket holds tokens for a single key (IP address).
 type tokenBucket struct {
 	mu       sync.Mutex
 	tokens   float64
 	lastFill time.Time
-	rate     float64 // tokens per second
+	rate     float64
 	capacity float64
 }
 
@@ -24,7 +23,6 @@ func newBucket(rate, capacity float64) *tokenBucket {
 	}
 }
 
-// allow consumes one token. Returns true if the request is allowed.
 func (b *tokenBucket) allow() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -45,12 +43,12 @@ func (b *tokenBucket) allow() bool {
 	return true
 }
 
-// rateLimiter holds per-IP buckets and performs periodic cleanup.
 type rateLimiter struct {
 	mu       sync.Mutex
 	buckets  map[string]*tokenBucket
 	rate     float64
 	capacity float64
+	done     chan struct{}
 }
 
 func newRateLimiter(requestsPerMinute int) *rateLimiter {
@@ -58,26 +56,36 @@ func newRateLimiter(requestsPerMinute int) *rateLimiter {
 		buckets:  make(map[string]*tokenBucket),
 		rate:     float64(requestsPerMinute) / 60.0,
 		capacity: float64(requestsPerMinute),
+		done:     make(chan struct{}),
 	}
 	go rl.cleanup()
 	return rl
 }
 
+func (rl *rateLimiter) stop() {
+	close(rl.done)
+}
+
 func (rl *rateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
-		rl.mu.Lock()
-		threshold := time.Now().Add(-10 * time.Minute)
-		for ip, b := range rl.buckets {
-			b.mu.Lock()
-			stale := b.lastFill.Before(threshold)
-			b.mu.Unlock()
-			if stale {
-				delete(rl.buckets, ip)
+	for {
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			threshold := time.Now().Add(-10 * time.Minute)
+			for ip, b := range rl.buckets {
+				b.mu.Lock()
+				stale := b.lastFill.Before(threshold)
+				b.mu.Unlock()
+				if stale {
+					delete(rl.buckets, ip)
+				}
 			}
+			rl.mu.Unlock()
+		case <-rl.done:
+			return
 		}
-		rl.mu.Unlock()
 	}
 }
 
@@ -92,7 +100,6 @@ func (rl *rateLimiter) getBucket(ip string) *tokenBucket {
 	return b
 }
 
-// limit returns an HTTP middleware that rate-limits by remote IP.
 func (rl *rateLimiter) limit(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := realIP(r)
@@ -105,10 +112,8 @@ func (rl *rateLimiter) limit(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// realIP extracts the client IP, respecting X-Forwarded-For / X-Real-IP.
 func realIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Take the first (leftmost) address
 		for i := 0; i < len(xff); i++ {
 			if xff[i] == ',' {
 				return xff[:i]
@@ -119,7 +124,6 @@ func realIP(r *http.Request) string {
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
-	// Strip port from RemoteAddr
 	addr := r.RemoteAddr
 	for i := len(addr) - 1; i >= 0; i-- {
 		if addr[i] == ':' {

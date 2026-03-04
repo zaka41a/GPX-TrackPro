@@ -7,13 +7,19 @@ import (
 	"net/http"
 )
 
+func bodySizeLimitMiddleware(limit int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 type contextKey string
 
 const requestIDKey contextKey = "requestID"
 
-// requestIDMiddleware reads X-Request-ID from the incoming request or generates
-// a new random 16-byte hex ID, attaches it to the request context, and echoes
-// it back in the response header.
 func requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get("X-Request-ID")

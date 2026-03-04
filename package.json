@@ -2,7 +2,11 @@
   "name": "gpx-training-analyzer",
   "private": true,
   "scripts": {
-    "dev": "npm --prefix frontend run dev",
+    "dev": "./dev.sh",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "cd backend && go run ./cmd/server",
+    "dev:docker": "docker compose up --build",
+    "dev:docker:down": "docker compose down",
     "build": "npm --prefix frontend run build",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build",

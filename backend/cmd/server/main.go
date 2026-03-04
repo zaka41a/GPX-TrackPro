@@ -30,7 +30,16 @@ func main() {
 	}
 
 	ctx := context.Background()
-	db, err := store.New(ctx)
+	var db *store.Store
+	var err error
+	for i := 1; i <= 30; i++ {
+		db, err = store.New(ctx)
+		if err == nil {
+			break
+		}
+		slog.Warn("waiting for database", "attempt", i, "err", err)
+		time.Sleep(2 * time.Second)
+	}
 	if err != nil {
 		slog.Error("database initialization failed", "err", err)
 		os.Exit(1)
@@ -62,6 +71,7 @@ func main() {
 	<-stop
 
 	slog.Info("shutting down gracefully")
+	h.Stop() // stop rate-limiter cleanup goroutine
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {

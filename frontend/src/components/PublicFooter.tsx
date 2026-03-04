@@ -8,10 +8,12 @@ export function PublicFooter() {
           <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-7 w-7 rounded-md object-cover" />
           <span className="font-bold text-foreground text-sm">GPX TrackPro</span>
         </div>
-        <nav className="flex gap-6 text-sm text-muted-foreground">
+        <nav className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
           <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
           <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
           <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
+          <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+          <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
           <Link to="/login" className="hover:text-foreground transition-colors">Sign In</Link>
         </nav>
         <p className="text-xs text-muted-foreground">&copy; 2026 GPX TrackPro. All rights reserved.</p>

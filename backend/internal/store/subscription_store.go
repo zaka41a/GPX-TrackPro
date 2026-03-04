@@ -6,18 +6,19 @@ import (
 )
 
 type Subscription struct {
-	ID          int64      `json:"id"`
-	UserID      int64      `json:"userId"`
-	Status      string     `json:"status"`
-	PeriodStart *time.Time `json:"periodStart"`
-	PeriodEnd   *time.Time `json:"periodEnd"`
-	Notes       string     `json:"notes"`
-	ActivatedBy string     `json:"activatedBy"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	UpdatedAt   time.Time  `json:"updatedAt"`
+	ID            int64      `json:"id"`
+	UserID        int64      `json:"userId"`
+	Status        string     `json:"status"`
+	PlanName      string     `json:"planName"`
+	RequestedPlan string     `json:"requestedPlan"`
+	PeriodStart   *time.Time `json:"periodStart"`
+	PeriodEnd     *time.Time `json:"periodEnd"`
+	Notes         string     `json:"notes"`
+	ActivatedBy   string     `json:"activatedBy"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
 }
 
-// IsActive returns true when the subscription status is active or trial and not yet expired.
 func (sub *Subscription) IsActive() bool {
 	if sub.Status != "active" && sub.Status != "trial" {
 		return false
@@ -37,19 +38,39 @@ type SubscriptionWithUser struct {
 
 func (s *Store) GetSubscription(ctx context.Context, userID int64) (*Subscription, error) {
 	query := `
-		SELECT id, user_id, status, period_start, period_end,
+		SELECT id, user_id, status,
+		       COALESCE(plan_name, 'starter'),
+		       COALESCE(requested_plan, ''),
+		       period_start, period_end,
 		       COALESCE(notes, ''), COALESCE(activated_by, ''), created_at, updated_at
 		FROM subscriptions WHERE user_id = $1
 	`
 	var sub Subscription
 	err := s.pool.QueryRow(ctx, query, userID).Scan(
-		&sub.ID, &sub.UserID, &sub.Status, &sub.PeriodStart, &sub.PeriodEnd,
+		&sub.ID, &sub.UserID, &sub.Status, &sub.PlanName, &sub.RequestedPlan,
+		&sub.PeriodStart, &sub.PeriodEnd,
 		&sub.Notes, &sub.ActivatedBy, &sub.CreatedAt, &sub.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &sub, nil
+}
+
+func (s *Store) SetRequestedPlan(ctx context.Context, userID int64, planName string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE subscriptions SET requested_plan = $1, updated_at = NOW() WHERE user_id = $2`,
+		planName, userID,
+	)
+	return err
+}
+
+func (s *Store) ClearRequestedPlan(ctx context.Context, userID int64) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE subscriptions SET requested_plan = NULL, updated_at = NOW() WHERE user_id = $1`,
+		userID,
+	)
+	return err
 }
 
 func (s *Store) UpsertSubscription(ctx context.Context, userID int64, status string, periodStart, periodEnd *time.Time, activatedBy, notes string) error {
@@ -68,13 +89,39 @@ func (s *Store) UpsertSubscription(ctx context.Context, userID int64, status str
 	return err
 }
 
+func (s *Store) UpdateSubscriptionPlan(ctx context.Context, userID int64, planName string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE subscriptions SET plan_name = $1, updated_at = NOW() WHERE user_id = $2`,
+		planName, userID,
+	)
+	return err
+}
+
+func (s *Store) UpdateStripeIDs(ctx context.Context, userID int64, customerID, subscriptionID string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE subscriptions SET stripe_customer_id = $1, stripe_subscription_id = $2, updated_at = NOW() WHERE user_id = $3`,
+		customerID, subscriptionID, userID,
+	)
+	return err
+}
+
+func (s *Store) GetUserIDByStripeCustomer(ctx context.Context, customerID string) (int64, error) {
+	var userID int64
+	err := s.pool.QueryRow(ctx,
+		`SELECT user_id FROM subscriptions WHERE stripe_customer_id = $1`,
+		customerID,
+	).Scan(&userID)
+	return userID, err
+}
+
 func (s *Store) ListSubscriptions(ctx context.Context) ([]SubscriptionWithUser, error) {
-	// LEFT JOIN so approved users without a subscription row still appear.
 	query := `
 		SELECT
 			COALESCE(s.id, 0),
 			u.id,
 			COALESCE(s.status, 'none'),
+			COALESCE(s.plan_name, 'starter'),
+			COALESCE(s.requested_plan, ''),
 			s.period_start,
 			s.period_end,
 			COALESCE(s.notes, ''),
@@ -85,7 +132,9 @@ func (s *Store) ListSubscriptions(ctx context.Context) ([]SubscriptionWithUser, 
 		FROM users u
 		LEFT JOIN subscriptions s ON s.user_id = u.id
 		WHERE u.role = 'user' AND u.status = 'approved'
-		ORDER BY COALESCE(s.updated_at, u.created_at) DESC
+		ORDER BY
+			(s.requested_plan IS NOT NULL AND s.requested_plan != '') DESC,
+			COALESCE(s.updated_at, u.created_at) DESC
 	`
 	rows, err := s.pool.Query(ctx, query)
 	if err != nil {
@@ -97,7 +146,8 @@ func (s *Store) ListSubscriptions(ctx context.Context) ([]SubscriptionWithUser, 
 	for rows.Next() {
 		var sw SubscriptionWithUser
 		if err := rows.Scan(
-			&sw.ID, &sw.UserID, &sw.Status, &sw.PeriodStart, &sw.PeriodEnd,
+			&sw.ID, &sw.UserID, &sw.Status, &sw.PlanName, &sw.RequestedPlan,
+			&sw.PeriodStart, &sw.PeriodEnd,
 			&sw.Notes, &sw.ActivatedBy, &sw.CreatedAt, &sw.UpdatedAt,
 			&sw.UserFirstName, &sw.UserLastName, &sw.UserEmail,
 		); err != nil {

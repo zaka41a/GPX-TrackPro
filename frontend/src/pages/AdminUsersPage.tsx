@@ -28,6 +28,7 @@ export default function AdminUsersPage() {
   const { data: users = [], isLoading } = useAdminUsers();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState<"newest" | "oldest" | "name" | "status">("newest");
   const [confirmAction, setConfirmAction] = useState<{ type: "approve" | "reject" | "delete"; user: User } | null>(null);
   const confirmRef = useRef(confirmAction);
   confirmRef.current = confirmAction;
@@ -48,11 +49,20 @@ export default function AdminUsersPage() {
     }
   };
 
-  const filtered = users.filter((u) => {
-    if (statusFilter !== "all" && u.status !== statusFilter) return false;
-    if (search && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const statusOrder: Record<string, number> = { pending: 0, approved: 1, rejected: 2 };
+  const filtered = users
+    .filter((u) => {
+      if (statusFilter !== "all" && u.status !== statusFilter) return false;
+      if (search && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sort === "newest") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (sort === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (sort === "name") return a.name.localeCompare(b.name);
+      if (sort === "status") return (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
+      return 0;
+    });
 
   const statusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -80,18 +90,32 @@ export default function AdminUsersPage() {
           </div>
 
           <div className="glass-surface rounded-xl p-4 flex flex-wrap items-center gap-3 accent-line-top">
-            <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-64 h-9 bg-muted/50 text-sm" />
-            <div className="flex gap-1.5">
+            <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-56 h-9 bg-muted/50 text-sm" />
+            <div className="flex gap-1.5 flex-wrap">
               {statusFilters.map((f) => (
                 <button
                   key={f.value}
                   onClick={() => setStatusFilter(f.value)}
                   className={cn(
-                    "px-3.5 py-2 rounded-lg text-xs font-medium transition-all",
-                    statusFilter === f.value ? "bg-accent/10 text-accent border border-accent/30" : "text-muted-foreground hover:text-foreground border border-transparent"
+                    "px-3.5 py-2 rounded-lg text-xs font-medium transition-all border",
+                    statusFilter === f.value ? "bg-accent/10 text-accent border-accent/30" : "text-muted-foreground hover:text-foreground border-transparent"
                   )}
                 >
                   {f.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5 ml-auto flex-wrap">
+              {(["newest", "oldest", "name", "status"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSort(s)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all border capitalize",
+                    sort === s ? "bg-muted text-foreground border-border" : "text-muted-foreground border-transparent hover:text-foreground"
+                  )}
+                >
+                  {s}
                 </button>
               ))}
             </div>
@@ -99,7 +123,6 @@ export default function AdminUsersPage() {
 
           {isLoading ? <SkeletonTable /> : (
             <>
-              {/* Desktop */}
               <div className="glass-surface rounded-xl overflow-hidden hidden md:block">
                 <Table>
                   <TableHeader>
@@ -146,7 +169,6 @@ export default function AdminUsersPage() {
                 </Table>
               </div>
 
-              {/* Mobile */}
               <div className="md:hidden space-y-3">
                 {filtered.map((u) => (
                   <div key={u.id} className="glass-card rounded-xl p-4 accent-line-left">

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/layouts/AppShell";
@@ -6,13 +7,55 @@ import { KpiCard } from "@/components/KpiCard";
 import { SkeletonKpiRow, SkeletonActivityList } from "@/components/SkeletonCards";
 import { useAuth } from "@/hooks/useAuth";
 import { useActivities } from "@/hooks/useActivities";
-import { Activity } from "@/types";
+import { useProfile } from "@/hooks/useProfile";
+import { Activity, AthleteProfile } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Archive, BarChart3, MapPin, Clock, Route, Timer, Gauge, Bike, Footprints, Dumbbell, ChevronRight, Activity as ActivityIcon } from "lucide-react";
-import { motion } from "framer-motion";
+import { Upload, Archive, BarChart3, MapPin, Clock, Route, Timer, Gauge, Bike, Footprints, Dumbbell, ChevronRight, Activity as ActivityIcon, UserCircle2, X, Flame, Target } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const sportIcons: Record<string, typeof Bike> = { cycling: Bike, running: Footprints, other: Dumbbell };
+
+function computeStreak(activities: Activity[]): number {
+  if (activities.length === 0) return 0;
+  const uniqueDays = [...new Set(activities.map((a) => a.date.slice(0, 10)))].sort().reverse();
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  if (uniqueDays[0] !== today && uniqueDays[0] !== yesterday) return 0;
+  let streak = 1;
+  for (let i = 1; i < uniqueDays.length; i++) {
+    const prev = new Date(uniqueDays[i - 1]).getTime();
+    const curr = new Date(uniqueDays[i]).getTime();
+    if ((prev - curr) / 86_400_000 === 1) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function thisWeekHours(activities: Activity[]): number {
+  const now = new Date();
+  const day = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - day);
+  monday.setHours(0, 0, 0, 0);
+  return activities
+    .filter((a) => new Date(a.date) >= monday)
+    .reduce((s, a) => s + a.duration / 3600, 0);
+}
+
+function profileCompleteness(p: AthleteProfile): number {
+  let score = 0;
+  if (p.bio?.trim()) score += 20;
+  if (p.avatarUrl?.trim()) score += 15;
+  if (p.city?.trim() || p.country?.trim()) score += 10;
+  if (p.dateOfBirth?.trim()) score += 10;
+  if (p.weeklyGoalHours != null) score += 15;
+  if (p.sportPhotoUrl?.trim()) score += 10;
+  const hasSocial = [p.websiteUrl, p.stravaUrl, p.instagramUrl, p.twitterUrl, p.youtubeUrl, p.linkedinUrl]
+    .some((v) => v?.trim());
+  if (hasSocial) score += 20;
+  return score;
+}
 
 function formatRelativeDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -29,10 +72,27 @@ function formatRelativeDate(dateStr: string): string {
 export default function UserDashboard() {
   const { user } = useAuth();
   const { data: activities = [], isLoading: loading } = useActivities();
+  const { data: profile } = useProfile();
+  const [bannerDismissed, setBannerDismissed] = useState(
+    () => sessionStorage.getItem("profileBannerDismissed") === "1",
+  );
+
+  const completeness = profile ? profileCompleteness(profile) : null;
+  const showBanner = completeness !== null && completeness < 60 && !bannerDismissed;
+
+  const dismissBanner = () => {
+    sessionStorage.setItem("profileBannerDismissed", "1");
+    setBannerDismissed(true);
+  };
 
   const totalDistance = activities.reduce((s, a) => s + a.distance, 0);
   const totalDuration = activities.reduce((s, a) => s + a.duration, 0);
   const avgSpeed = activities.length > 0 ? activities.reduce((s, a) => s + a.avgSpeed, 0) / activities.length : 0;
+
+  const streak = computeStreak(activities);
+  const weekHours = thisWeekHours(activities);
+  const goalHours = profile?.weeklyGoalHours ?? null;
+  const goalPct = goalHours && goalHours > 0 ? Math.min(100, Math.round((weekHours / goalHours) * 100)) : null;
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -45,7 +105,44 @@ export default function UserDashboard() {
     <AppShell>
       <PageTransition>
         <div className="space-y-8">
-          {/* Welcome */}
+          <AnimatePresence>
+            {showBanner && (
+              <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                className="flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3"
+              >
+                <UserCircle2 className="h-5 w-5 text-accent shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">
+                    Complete your profile — {completeness}% done
+                  </p>
+                  <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted/60">
+                    <div
+                      className="h-full rounded-full bg-accent transition-all"
+                      style={{ width: `${completeness}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add bio, photo, location and social links to stand out in the community.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button size="sm" variant="outline" className="text-accent border-accent/30 hover:bg-accent/10 text-xs" asChild>
+                    <Link to="/profile">Complete profile</Link>
+                  </Button>
+                  <button
+                    onClick={dismissBanner}
+                    className="text-muted-foreground hover:text-foreground p-1 rounded"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="glass-surface rounded-xl p-6 border-l-2 border-accent/40">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -60,7 +157,6 @@ export default function UserDashboard() {
             </div>
           </div>
 
-          {/* KPI Row */}
           {loading ? (
             <SkeletonKpiRow />
           ) : (
@@ -92,7 +188,60 @@ export default function UserDashboard() {
             </div>
           )}
 
-          {/* Quick Actions */}
+          {!loading && activities.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                <div className={`glass-surface rounded-xl p-4 flex items-center gap-4 border-l-2 ${streak >= 3 ? "border-warning/60" : "border-border"}`}>
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${streak >= 3 ? "bg-warning/10" : "bg-muted/40"}`}>
+                    <Flame className={`h-5 w-5 ${streak >= 3 ? "text-warning" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground font-medium">Active Streak</p>
+                    <p className="text-2xl font-bold text-foreground leading-none mt-0.5">
+                      {streak} <span className="text-sm font-normal text-muted-foreground">day{streak !== 1 ? "s" : ""}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {streak === 0 ? "No recent activity" : streak >= 7 ? "On fire! Keep it up 🔥" : "Keep the streak going"}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+                <div className="glass-surface rounded-xl p-4 border-l-2 border-accent/40">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                      <Target className="h-5 w-5 text-accent" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground font-medium">Weekly Goal</p>
+                      {goalHours ? (
+                        <p className="text-sm font-bold text-foreground leading-none mt-0.5">
+                          {weekHours.toFixed(1)}h <span className="text-muted-foreground font-normal">/ {goalHours}h</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground mt-0.5">No goal set</p>
+                      )}
+                    </div>
+                    {goalPct !== null && (
+                      <span className={`text-sm font-bold ${goalPct >= 100 ? "text-success" : "text-accent"}`}>{goalPct}%</span>
+                    )}
+                  </div>
+                  {goalHours ? (
+                    <div className="h-2 rounded-full bg-muted/50">
+                      <div
+                        className={`h-full rounded-full transition-all ${goalPct! >= 100 ? "bg-success" : "bg-accent"}`}
+                        style={{ width: `${goalPct}%` }}
+                      />
+                    </div>
+                  ) : (
+                    <Link to="/profile" className="text-xs text-accent hover:underline">Set a weekly goal →</Link>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { to: "/upload", icon: Upload, label: "Upload", desc: "Add new activity", color: "text-accent", bg: "bg-accent/10" },
@@ -114,7 +263,6 @@ export default function UserDashboard() {
             ))}
           </div>
 
-          {/* Recent Activities */}
           <section>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">

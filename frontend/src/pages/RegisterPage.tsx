@@ -72,7 +72,6 @@ export default function RegisterPage() {
     <PageTransition>
       <PublicLayout showFooter={false}>
         <div className="flex-1 flex min-h-[calc(100vh-4rem)]">
-          {/* Brand panel - desktop only */}
           <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
@@ -107,7 +106,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Form panel */}
           <div className="flex-1 flex items-center justify-center p-6 bg-background">
             <div className="w-full max-w-md">
               {registered ? (
@@ -132,7 +130,6 @@ export default function RegisterPage() {
                   transition={{ duration: 0.5 }}
                   className="rounded-2xl bg-card border border-border p-8 shadow-sm"
                 >
-                  {/* Mobile logo */}
                   <div className="flex items-center justify-center mb-6 lg:hidden">
                     <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-12 w-12 rounded-xl object-cover" />
                   </div>
@@ -179,6 +176,12 @@ export default function RegisterPage() {
                       <PasswordStrength password={password} />
                       {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
                     </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      By creating an account you agree to our{" "}
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Terms of Service</a>
+                      {" "}and{" "}
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Privacy Policy</a>.
+                    </p>
                     <Button type="submit" disabled={isSubmitting} className="w-full h-11 bg-accent text-accent-foreground hover:bg-accent/90">
                       {isSubmitting ? "Creating..." : "Create Account"} {!isSubmitting && <ArrowRight className="h-4 w-4 ml-2" />}
                     </Button>
