@@ -1,4 +1,4 @@
-import { Activity, ActivityStatistics } from "@/types";
+import { Activity, ActivityStatistics, HRZone, ClimbSegment } from "@/types";
 import { apiFetch } from "./api";
 
 type BackendPoint = {
@@ -33,6 +33,8 @@ type BackendActivity = {
   activityDate: string;
   metrics: BackendMetrics;
   points?: BackendPoint[];
+  hrZones?: HRZone[];
+  climbs?: ClimbSegment[];
 };
 
 function mapActivity(a: BackendActivity): Activity {
@@ -72,12 +74,27 @@ function mapStats(a: BackendActivity): ActivityStatistics {
     return pt;
   });
 
-  const coordinates = points.map((p) => ({ lat: p.lat, lng: p.lon }));
+  const coordinates = points.map((p, i) => {
+    let speed: number | undefined;
+    if (i > 0 && p.time && points[i - 1].time) {
+      const prev = points[i - 1];
+      const distKm = haversineKm(prev.lat, prev.lon, p.lat, p.lon);
+      const deltaSec =
+        (new Date(p.time).getTime() - new Date(prev.time!).getTime()) / 1000;
+      if (deltaSec > 0 && deltaSec < 600) {
+        const raw = distKm / (deltaSec / 3600);
+        if (raw < 120) speed = Math.round(raw * 10) / 10;
+      }
+    }
+    return { lat: p.lat, lng: p.lon, speed, hr: p.hr };
+  });
 
   return {
     ...base,
     elevationProfile,
     coordinates,
+    hrZones: a.hrZones,
+    climbs: a.climbs,
   };
 }
 

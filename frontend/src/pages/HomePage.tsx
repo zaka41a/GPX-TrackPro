@@ -217,7 +217,7 @@ export default function HomePage() {
                 <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 glow-accent h-12 px-8 w-full sm:w-auto" asChild>
                   <Link to="/register">Get Started Free <ArrowRight className="h-4 w-4 ml-2" /></Link>
                 </Button>
-                <Button size="lg" variant="outline" className="h-12 px-8 border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white w-full sm:w-auto" asChild>
+                <Button size="lg" variant="ghost" className="h-12 px-8 border border-slate-600 text-slate-200 hover:bg-white/10 hover:text-white hover:border-slate-500 w-full sm:w-auto" asChild>
                   <Link to="/login">Sign In</Link>
                 </Button>
               </div>
@@ -459,7 +459,7 @@ export default function HomePage() {
                 <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 glow-accent h-12 px-8 w-full sm:w-auto" asChild>
                   <Link to="/register">Start for Free <ArrowRight className="h-4 w-4 ml-2" /></Link>
                 </Button>
-                <Button size="lg" variant="outline" className="h-12 px-8 border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white w-full sm:w-auto" asChild>
+                <Button size="lg" variant="ghost" className="h-12 px-8 border border-slate-600 text-slate-200 hover:bg-white/10 hover:text-white hover:border-slate-500 w-full sm:w-auto" asChild>
                   <Link to="/login">Sign In</Link>
                 </Button>
               </div>

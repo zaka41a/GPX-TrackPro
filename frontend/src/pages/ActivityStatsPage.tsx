@@ -4,10 +4,10 @@ import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/layouts/AppShell";
 import { SkeletonKpiRow } from "@/components/SkeletonCards";
 import { activityService } from "@/services/activityService";
-import { ActivityStatistics } from "@/types";
+import { ActivityStatistics, HRZone, ClimbSegment } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, ArrowLeft, MapPin, BarChart3, Bike, Footprints, Dumbbell, Calendar, HeartPulse } from "lucide-react";
+import { Download, ArrowLeft, MapPin, BarChart3, Bike, Footprints, Dumbbell, Calendar, HeartPulse, TrendingUp, Mountain } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -19,11 +19,83 @@ import {
   ReferenceLine,
   LineChart,
   Line,
+  BarChart,
+  Bar,
+  Cell,
+  LabelList,
 } from "recharts";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Tooltip as MapTooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function metricToColor(value: number, min: number, max: number): string {
+  if (max <= min) return "#3b82f6";
+  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  // blue (hue 240) → green (120) → red (0)
+  const hue = Math.round(240 - t * 240);
+  return `hsl(${hue}, 85%, 50%)`;
+}
+
+function fmtDuration(sec: number): string {
+  if (!sec) return "—";
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s}s`;
+}
+
+const ZONE_COLORS = ["#3b82f6", "#22c55e", "#eab308", "#f97316", "#ef4444"];
+
+// ── Colored polyline for map ──────────────────────────────────────────────────
+
+function ColoredPolyline({
+  positions,
+  values,
+}: {
+  positions: [number, number][];
+  values: (number | undefined)[];
+}) {
+  const valid = values.filter((v): v is number => v !== undefined);
+  const min = valid.length ? Math.min(...valid) : 0;
+  const max = valid.length ? Math.max(...valid) : 1;
+
+  return (
+    <>
+      {positions.slice(0, -1).map((pos, i) => {
+        const v = values[i] ?? min;
+        return (
+          <Polyline
+            key={i}
+            positions={[pos, positions[i + 1]]}
+            pathOptions={{ color: metricToColor(v, min, max), weight: 4, opacity: 0.9 }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+// ── Color legend ──────────────────────────────────────────────────────────────
+
+function ColorLegend({ label, unit, min, max }: { label: string; unit: string; min: number; max: number }) {
+  return (
+    <div className="absolute bottom-3 left-3 z-[1000] bg-card/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 text-xs">
+      <p className="text-muted-foreground mb-1.5 font-medium">{label}</p>
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground">{min.toFixed(0)}{unit}</span>
+        <div
+          className="h-2 w-24 rounded-full"
+          style={{ background: "linear-gradient(to right, hsl(240,85%,50%), hsl(120,85%,50%), hsl(0,85%,50%))" }}
+        />
+        <span className="text-muted-foreground">{max.toFixed(0)}{unit}</span>
+      </div>
+    </div>
+  );
+}
 
 const sportIcons: Record<string, typeof Bike> = { cycling: Bike, running: Footprints, other: Dumbbell };
 const sportBg: Record<string, string> = { cycling: "bg-accent/10 text-accent", running: "bg-success/10 text-success", other: "bg-warning/10 text-warning" };
@@ -39,10 +111,153 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
   return null;
 }
 
+// ── HR Zones section ──────────────────────────────────────────────────────────
+
+function HRZonesSection({ zones }: { zones: HRZone[] }) {
+  const data = zones.map((z, i) => ({
+    name: z.label,
+    pct: z.pctTime,
+    time: fmtDuration(z.timeSec),
+    range: `${z.minBpm}–${z.maxBpm} bpm`,
+    color: ZONE_COLORS[i],
+  }));
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+        <div className="section-icon-bg bg-destructive/10">
+          <TrendingUp className="h-4 w-4 text-destructive" />
+        </div>
+        <div>
+          <span>Training Zones</span>
+          <p className="text-xs text-muted-foreground font-normal">Time distribution per HR zone</p>
+        </div>
+      </h2>
+      <div className="rounded-xl border border-border bg-card p-4 accent-line-top">
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 60, left: 0, bottom: 0 }}>
+            <XAxis
+              type="number"
+              domain={[0, 100]}
+              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              tickFormatter={(v: number) => `${v}%`}
+            />
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={110}
+              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "8px",
+                fontSize: "12px",
+              }}
+              formatter={(_: number, __: string, entry: { payload: { time: string; range: string } }) => [
+                `${entry.payload.time} · ${entry.payload.range}`,
+                "Time",
+              ]}
+              labelFormatter={(label: string) => label}
+            />
+            <Bar dataKey="pct" radius={[0, 4, 4, 0]} maxBarSize={24}>
+              {data.map((entry, i) => (
+                <Cell key={i} fill={entry.color} />
+              ))}
+              <LabelList
+                dataKey="pct"
+                position="right"
+                formatter={(v: number) => (v > 0 ? `${v}%` : "")}
+                style={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
+}
+
+// ── Climbs section ────────────────────────────────────────────────────────────
+
+function ClimbsSection({ climbs }: { climbs: ClimbSegment[] }) {
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+        <div className="section-icon-bg">
+          <Mountain className="h-4 w-4 text-accent" />
+        </div>
+        <div>
+          <span>Climbs</span>
+          <p className="text-xs text-muted-foreground font-normal">
+            {climbs.length} detected segment{climbs.length > 1 ? "s" : ""}
+          </p>
+        </div>
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {climbs.map((c) => (
+          <div
+            key={c.index}
+            className="rounded-xl border border-border bg-card p-4 space-y-3 hover:shadow-sm transition-shadow accent-line-top"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-accent uppercase tracking-wide">
+                Climb #{c.index}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {c.startKm} → {c.endKm} km
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Gain</p>
+                <p className="text-base font-bold text-foreground">
+                  {c.elevGainM}<span className="text-xs font-normal text-muted-foreground ml-0.5">m</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Distance</p>
+                <p className="text-base font-bold text-foreground">
+                  {c.distanceKm}<span className="text-xs font-normal text-muted-foreground ml-0.5">km</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Gradient</p>
+                <p className="text-base font-bold text-foreground">
+                  {c.gradientPct}<span className="text-xs font-normal text-muted-foreground ml-0.5">%</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">VAM</p>
+                <p className="text-base font-bold text-foreground">
+                  {c.vam > 0 ? (
+                    <>{c.vam}<span className="text-xs font-normal text-muted-foreground ml-0.5">m/h</span></>
+                  ) : "—"}
+                </p>
+              </div>
+            </div>
+            {c.durationSec > 0 && (
+              <p className="text-xs text-muted-foreground border-t border-border pt-2">
+                Duration: {fmtDuration(c.durationSec)}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
+type MapMode = "route" | "speed" | "hr";
+
 export default function ActivityStatsPage() {
   const { id } = useParams<{ id: string }>();
   const [activity, setActivity] = useState<ActivityStatistics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mapMode, setMapMode] = useState<MapMode>("route");
 
   useEffect(() => {
     if (id) activityService.getActivityById(id).then((a) => { setActivity(a); setLoading(false); });
@@ -74,13 +289,38 @@ export default function ActivityStatsPage() {
     return Math.round(hrData.reduce((s, d) => s + d.hr, 0) / hrData.length);
   }, [hrData]);
 
-  const mapPositions = useMemo<[number, number][]>(() => {
+  const sampledCoords = useMemo(() => {
     if (!activity?.coordinates?.length) return [];
     const step = Math.max(1, Math.floor(activity.coordinates.length / 500));
-    return activity.coordinates
-      .filter((_, i) => i % step === 0 || i === activity.coordinates!.length - 1)
-      .map((c) => [c.lat, c.lng]);
+    return activity.coordinates.filter(
+      (_, i) => i % step === 0 || i === activity.coordinates!.length - 1,
+    );
   }, [activity]);
+
+  const mapPositions = useMemo<[number, number][]>(
+    () => sampledCoords.map((c) => [c.lat, c.lng]),
+    [sampledCoords],
+  );
+
+  const mapSpeedValues = useMemo(
+    () => sampledCoords.map((c) => c.speed),
+    [sampledCoords],
+  );
+
+  const mapHRValues = useMemo(
+    () => sampledCoords.map((c) => c.hr),
+    [sampledCoords],
+  );
+
+  const speedRange = useMemo(() => {
+    const vals = mapSpeedValues.filter((v): v is number => v !== undefined);
+    return { min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 1 };
+  }, [mapSpeedValues]);
+
+  const hrRange = useMemo(() => {
+    const vals = mapHRValues.filter((v): v is number => v !== undefined);
+    return { min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 1 };
+  }, [mapHRValues]);
 
   if (loading) return (
     <AppShell>
@@ -370,37 +610,97 @@ export default function ActivityStatsPage() {
           )}
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-              <div className="section-icon-bg">
-                <MapPin className="h-4 w-4 text-accent" />
-              </div>
-              Route Map
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <div className="section-icon-bg">
+                  <MapPin className="h-4 w-4 text-accent" />
+                </div>
+                Route Map
+              </h2>
+              {mapPositions.length > 1 && (
+                <div className="flex gap-1 rounded-lg border border-border p-0.5 bg-muted/40">
+                  {(["route", "speed", "hr"] as MapMode[]).map((mode) => {
+                    const disabled =
+                      (mode === "speed" && mapSpeedValues.every((v) => v === undefined)) ||
+                      (mode === "hr" && mapHRValues.every((v) => v === undefined));
+                    return (
+                      <button
+                        key={mode}
+                        disabled={disabled}
+                        onClick={() => setMapMode(mode)}
+                        className={cn(
+                          "px-3 py-1 rounded-md text-xs font-medium transition-all capitalize",
+                          mapMode === mode
+                            ? "bg-accent text-accent-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed",
+                        )}
+                      >
+                        {mode === "route" ? "Route" : mode === "speed" ? "Speed" : "Heart Rate"}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <div className="rounded-xl border border-border bg-card overflow-hidden">
               {mapPositions.length > 1 ? (
-                <MapContainer
-                  center={mapPositions[0]}
-                  zoom={13}
-                  scrollWheelZoom
-                  style={{ height: 400, width: "100%" }}
-                  className="z-0"
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <Polyline
-                    positions={mapPositions}
-                    pathOptions={{ color: "hsl(217, 91%, 60%)", weight: 4, opacity: 0.85 }}
-                  />
-                  <CircleMarker center={mapPositions[0]} radius={7} pathOptions={{ color: "#16a34a", fillColor: "#22c55e", fillOpacity: 1, weight: 2 }}>
-                    <MapTooltip>Start</MapTooltip>
-                  </CircleMarker>
-                  <CircleMarker center={mapPositions[mapPositions.length - 1]} radius={7} pathOptions={{ color: "#dc2626", fillColor: "#ef4444", fillOpacity: 1, weight: 2 }}>
-                    <MapTooltip>End</MapTooltip>
-                  </CircleMarker>
-                  <FitBounds positions={mapPositions} />
-                </MapContainer>
+                <div className="relative">
+                  <MapContainer
+                    center={mapPositions[0]}
+                    zoom={13}
+                    scrollWheelZoom
+                    style={{ height: 420, width: "100%" }}
+                    className="z-0"
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    {mapMode === "route" && (
+                      <Polyline
+                        positions={mapPositions}
+                        pathOptions={{ color: "hsl(217, 91%, 60%)", weight: 4, opacity: 0.9 }}
+                      />
+                    )}
+                    {mapMode === "speed" && (
+                      <ColoredPolyline positions={mapPositions} values={mapSpeedValues} />
+                    )}
+                    {mapMode === "hr" && (
+                      <ColoredPolyline positions={mapPositions} values={mapHRValues} />
+                    )}
+                    <CircleMarker
+                      center={mapPositions[0]}
+                      radius={8}
+                      pathOptions={{ color: "#15803d", fillColor: "#22c55e", fillOpacity: 1, weight: 2 }}
+                    >
+                      <MapTooltip>Start</MapTooltip>
+                    </CircleMarker>
+                    <CircleMarker
+                      center={mapPositions[mapPositions.length - 1]}
+                      radius={8}
+                      pathOptions={{ color: "#b91c1c", fillColor: "#ef4444", fillOpacity: 1, weight: 2 }}
+                    >
+                      <MapTooltip>End</MapTooltip>
+                    </CircleMarker>
+                    <FitBounds positions={mapPositions} />
+                  </MapContainer>
+                  {mapMode === "speed" && (
+                    <ColorLegend
+                      label="Speed"
+                      unit=" km/h"
+                      min={speedRange.min}
+                      max={speedRange.max}
+                    />
+                  )}
+                  {mapMode === "hr" && (
+                    <ColorLegend
+                      label="Heart Rate"
+                      unit=" bpm"
+                      min={hrRange.min}
+                      max={hrRange.max}
+                    />
+                  )}
+                </div>
               ) : (
                 <div className="h-64 flex items-center justify-center">
                   <div className="text-center">
@@ -411,6 +711,16 @@ export default function ActivityStatsPage() {
               )}
             </div>
           </section>
+
+          {/* HR Zones */}
+          {activity.hrZones && activity.hrZones.some((z) => z.timeSec > 0) && (
+            <HRZonesSection zones={activity.hrZones} />
+          )}
+
+          {/* Climbs */}
+          {activity.climbs && activity.climbs.length > 0 && (
+            <ClimbsSection climbs={activity.climbs} />
+          )}
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">

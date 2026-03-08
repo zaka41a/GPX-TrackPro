@@ -30,9 +30,31 @@ export interface Activity {
   pace?: number; // min/km
 }
 
+export interface HRZone {
+  zone: number;
+  label: string;
+  minBpm: number;
+  maxBpm: number;
+  timeSec: number;
+  pctTime: number;
+}
+
+export interface ClimbSegment {
+  index: number;
+  startKm: number;
+  endKm: number;
+  elevGainM: number;
+  distanceKm: number;
+  gradientPct: number;
+  vam: number;
+  durationSec: number;
+}
+
 export interface ActivityStatistics extends Activity {
   elevationProfile?: { distance: number; elevation: number; hr?: number }[];
-  coordinates?: { lat: number; lng: number }[];
+  coordinates?: { lat: number; lng: number; speed?: number; hr?: number }[];
+  hrZones?: HRZone[];
+  climbs?: ClimbSegment[];
 }
 
 export interface AdminStats {

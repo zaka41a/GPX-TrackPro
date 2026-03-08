@@ -465,7 +465,16 @@ func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, activity)
+	type activityDetail struct {
+		store.Activity
+		HRZones []metrics.HRZone       `json:"hrZones"`
+		Climbs  []metrics.ClimbSegment `json:"climbs"`
+	}
+	writeJSON(w, http.StatusOK, activityDetail{
+		Activity: activity,
+		HRZones:  metrics.ComputeHRZones(activity.Points, activity.Metrics.MaxHR),
+		Climbs:   metrics.DetectClimbs(activity.Points),
+	})
 }
 
 func (h *Handler) updateAvatar(w http.ResponseWriter, r *http.Request) {
