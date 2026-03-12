@@ -832,10 +832,10 @@ The GitHub Actions pipeline runs automatically on every `push` and `pull_request
                                   |
                  +----------------+----------------+
                  |                                 |
-        backend-test                    frontend-lint-test
-        (ubuntu-latest)                  (ubuntu-latest)
+           backend-test                     frontend-lint-test
+          (ubuntu-latest)                    (ubuntu-latest)
                  |                                 |
-         Go 1.25 setup                    Node.js 20 setup
+         Go 1.25 setup                      Node.js 20 setup
                  |                                 |
        go test ./... -v -race              npm ci
                  |                         npm run lint
