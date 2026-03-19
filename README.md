@@ -883,12 +883,7 @@ The project was built incrementally in **5 parts**:
 
 <br /><br />
 
-**GPX TrackPro** &mdash; Sports Activity Analysis Platform
 
-Academic Project &middot; IUT Computer Science
 
-<br />
-
-Built with Go, React & PostgreSQL
 
 </div>
