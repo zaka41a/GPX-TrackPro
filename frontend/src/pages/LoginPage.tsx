@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageTransition } from "@/components/PageTransition";
@@ -14,8 +14,7 @@ import { motion } from "framer-motion";
 import { ApiError, apiFetch } from "@/services/api";
 
 export default function LoginPage() {
-  const { login, user } = useAuth();
-  const navigate = useNavigate();
+  const { login } = useAuth();
   const [searchParams] = useSearchParams();
   const statusParam = searchParams.get("status");
   const [showPw, setShowPw] = useState(false);
@@ -56,11 +55,6 @@ export default function LoginPage() {
       setServerError("Unable to resend verification email");
     }
   };
-
-  if (user && user.status === "approved") {
-    const dest = user.role === "admin" ? "/admin" : "/dashboard";
-    navigate(dest, { replace: true });
-  }
 
   const inputClass = "mt-1.5 h-11 bg-muted border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:ring-2 focus:ring-accent/20";
 

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ProtectedRoute, PublicOnlyRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 import HomePage from "./pages/HomePage";
@@ -53,29 +53,29 @@ const App = () => (
             <BrowserRouter>
               <Routes>
                 {/* Public */}
-                <Route path="/" element={<HomePage />} />
+                <Route path="/" element={<PublicOnlyRoute><HomePage /></PublicOnlyRoute>} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/contact" element={<ContactPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
-                <Route path="/verify-email" element={<EmailVerificationPage />} />
+                <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
+                <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
+                <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
+                <Route path="/reset-password" element={<PublicOnlyRoute><ResetPasswordPage /></PublicOnlyRoute>} />
+                <Route path="/verify-email" element={<PublicOnlyRoute><EmailVerificationPage /></PublicOnlyRoute>} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
 
                 {/* User */}
-                <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-                <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
-                <Route path="/activities" element={<ProtectedRoute><ActivitiesArchivePage /></ProtectedRoute>} />
-                <Route path="/activity/:id" element={<ProtectedRoute><ActivityStatsPage /></ProtectedRoute>} />
-                <Route path="/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                <Route path="/community" element={<ProtectedRoute><CommunityFeedPage /></ProtectedRoute>} />
-                <Route path="/community/:id" element={<ProtectedRoute><CommunityPostPage /></ProtectedRoute>} />
-                <Route path="/messages" element={<ProtectedRoute><MessagingPage /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-                <Route path="/u/:userId" element={<ProtectedRoute><PublicProfilePage /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<ProtectedRoute requiredRole="user"><UserDashboard /></ProtectedRoute>} />
+                <Route path="/upload" element={<ProtectedRoute requiredRole="user"><UploadPage /></ProtectedRoute>} />
+                <Route path="/activities" element={<ProtectedRoute requiredRole="user"><ActivitiesArchivePage /></ProtectedRoute>} />
+                <Route path="/activity/:id" element={<ProtectedRoute requiredRole="user"><ActivityStatsPage /></ProtectedRoute>} />
+                <Route path="/statistics" element={<ProtectedRoute requiredRole="user"><StatisticsPage /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute requiredRole="user"><ProfilePage /></ProtectedRoute>} />
+                <Route path="/community" element={<ProtectedRoute requiredRole="user"><CommunityFeedPage /></ProtectedRoute>} />
+                <Route path="/community/:id" element={<ProtectedRoute requiredRole="user"><CommunityPostPage /></ProtectedRoute>} />
+                <Route path="/messages" element={<ProtectedRoute requiredRole="user"><MessagingPage /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute requiredRole="user"><SettingsPage /></ProtectedRoute>} />
+                <Route path="/u/:userId" element={<ProtectedRoute requiredRole="user"><PublicProfilePage /></ProtectedRoute>} />
 
                 {/* Admin */}
                 <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />

@@ -20,3 +20,13 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   return <>{children}</>;
 }
+
+export function PublicOnlyRoute({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+
+  if (user && user.status === "approved") {
+    return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
+  }
+
+  return <>{children}</>;
+}
