@@ -295,6 +295,39 @@ func (s *Store) ListActivities(ctx context.Context, userID int64, page, pageSize
 	return newPaginated(activities, total, page, pageSize), nil
 }
 
+// ActivityLoadRow holds the minimal fields needed for CTL/ATL/TSB computation.
+type ActivityLoadRow struct {
+	ActivityDate time.Time
+	DurationSec  int
+	AvgHR        float64
+	MaxHR        int
+}
+
+// ListActivitiesForLoad returns all activities for a user ordered by date,
+// fetching only the columns required for load-flow computation.
+func (s *Store) ListActivitiesForLoad(ctx context.Context, userID int64) ([]ActivityLoadRow, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT activity_date, duration_sec, avg_hr, max_hr
+		FROM activities
+		WHERE user_id = $1
+		ORDER BY activity_date ASC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []ActivityLoadRow
+	for rows.Next() {
+		var a ActivityLoadRow
+		if err := rows.Scan(&a.ActivityDate, &a.DurationSec, &a.AvgHR, &a.MaxHR); err != nil {
+			return nil, err
+		}
+		result = append(result, a)
+	}
+	return result, rows.Err()
+}
+
 type UserPublicStats struct {
 	ActivityCount   int     `json:"activityCount"`
 	TotalDistanceKm float64 `json:"totalDistanceKm"`

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -90,6 +91,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/subscriptions", h.adminListSubscriptions)
 	mux.HandleFunc("PUT /api/admin/subscriptions/", h.adminUpdateSubscription)
 
+	mux.HandleFunc("GET /api/statistics/load", h.getLoadFlow)
 	mux.HandleFunc("POST /api/activities/upload", h.upload)
 	mux.HandleFunc("GET /api/activities", h.list)
 	mux.HandleFunc("GET /api/activities/", h.getByID)
@@ -376,6 +378,99 @@ func (h *Handler) adminListActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, actions)
+}
+
+// ── Load Flow (Performance Management Chart) ─────────────────────────────────
+//
+// Method: Banister TRIMP + exponential moving average (EMA) CTL/ATL/TSB.
+//   TRIMP  = duration_min × HRR × e^(1.92 × HRR)   (Banister 1991)
+//   HRR    = avgHR / maxHR   (heart-rate ratio, simplified – no rest HR needed)
+//   CTL    = EMA(τ=42 days) of daily TRIMP  → "Fitness"
+//   ATL    = EMA(τ=7  days) of daily TRIMP  → "Fatigue"
+//   TSB    = CTL − ATL                       → "Form"
+//
+// This is the industry-standard PMC used by TrainingPeaks, Garmin, Wahoo.
+
+func computeTRIMP(durationSec int, avgHR, maxHR float64) float64 {
+	dMin := float64(durationSec) / 60.0
+	if dMin <= 0 {
+		return 0
+	}
+	if avgHR > 0 && maxHR > 0 && avgHR < maxHR {
+		hrr := avgHR / maxHR
+		// Banister TRIMP
+		return math.Round(dMin*hrr*math.Exp(1.92*hrr)*100) / 100
+	}
+	// No HR data: assume moderate aerobic intensity (≈ Z2, ~0.65 TRIMP/min)
+	return math.Round(dMin*0.65*100) / 100
+}
+
+func (h *Handler) getLoadFlow(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireSubscribedUser(w, r)
+	if !ok {
+		return
+	}
+
+	acts, err := h.store.ListActivitiesForLoad(r.Context(), user.ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to fetch activities")
+		return
+	}
+
+	// Build daily TRIMP map (all history for EMA warm-up)
+	dailyTRIMP := make(map[string]float64)
+	for _, a := range acts {
+		d := a.ActivityDate.UTC().Format("2006-01-02")
+		dailyTRIMP[d] += computeTRIMP(a.DurationSec, a.AvgHR, float64(a.MaxHR))
+	}
+
+	// EMA decay constants
+	const ctlTau = 42.0
+	const atlTau = 7.0
+	ctlK := 1 - math.Exp(-1.0/ctlTau) // ≈ 0.0235
+	atlK := 1 - math.Exp(-1.0/atlTau) // ≈ 0.1326
+
+	// Determine the oldest activity date for warm-up start
+	warmupStart := time.Now().UTC().AddDate(-2, 0, 0) // up to 2 years back
+	if len(acts) > 0 {
+		warmupStart = acts[0].ActivityDate.UTC().Truncate(24 * time.Hour)
+	}
+
+	now := time.Now().UTC().Truncate(24 * time.Hour)
+
+	type loadPoint struct {
+		Date  string  `json:"date"`
+		TRIMP float64 `json:"trimp"`
+		CTL   float64 `json:"ctl"`
+		ATL   float64 `json:"atl"`
+		TSB   float64 `json:"tsb"`
+	}
+
+	// EMA warm-up over full history, collect last 90 days for response
+	displayStart := now.AddDate(0, 0, -89)
+
+	var result []loadPoint
+	ctl, atl := 0.0, 0.0
+
+	for d := warmupStart; !d.After(now); d = d.AddDate(0, 0, 1) {
+		key := d.Format("2006-01-02")
+		trimp := dailyTRIMP[key]
+
+		ctl = ctl + (trimp-ctl)*ctlK
+		atl = atl + (trimp-atl)*atlK
+
+		if !d.Before(displayStart) {
+			result = append(result, loadPoint{
+				Date:  key,
+				TRIMP: math.Round(trimp*10) / 10,
+				CTL:   math.Round(ctl*10) / 10,
+				ATL:   math.Round(atl*10) / 10,
+				TSB:   math.Round((ctl-atl)*10) / 10,
+			})
+		}
+	}
+
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {

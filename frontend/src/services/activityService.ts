@@ -106,6 +106,14 @@ type PaginatedActivities = {
   totalPages: number;
 };
 
+export type LoadPoint = {
+  date: string;
+  trimp: number;
+  ctl: number;
+  atl: number;
+  tsb: number;
+};
+
 export const activityService = {
   async getActivities(page = 1, pageSize = 100): Promise<Activity[]> {
     const result = await apiFetch<PaginatedActivities>(
@@ -131,6 +139,10 @@ export const activityService = {
       totalPages: result.totalPages,
       total: result.total,
     };
+  },
+
+  async getLoadFlow(): Promise<LoadPoint[]> {
+    return apiFetch<LoadPoint[]>("/api/statistics/load", undefined, true);
   },
 
   async getActivityById(id: string): Promise<ActivityStatistics | null> {

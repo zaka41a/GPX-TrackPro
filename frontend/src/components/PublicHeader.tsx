@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Zap } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -16,7 +16,18 @@ export function PublicHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-lg">
+    <header className="sticky top-0 z-50">
+      {/* Announcement bar */}
+      <div className="bg-gradient-to-r from-accent via-accent/90 to-accent/80 text-accent-foreground text-xs sm:text-sm py-2 px-4 text-center flex items-center justify-center gap-2 font-medium tracking-wide">
+        <Zap className="h-3.5 w-3.5 shrink-0 text-yellow-300" />
+        <span>
+          Analyze your GPX files like a pro: heart rate zones, climb detection, interactive maps.{" "}
+          <Link to="/register" className="underline underline-offset-2 hover:text-yellow-200 transition-colors font-semibold">
+            Start for free →
+          </Link>
+        </span>
+      </div>
+      <div className="border-b border-border bg-background/90 backdrop-blur-lg">
       <div className="container flex items-center justify-between h-16">
         <Link to="/" className="flex items-center gap-3">
           <img src="/logo-gpx-trackpro.png" alt="GPX TrackPro" className="h-14 w-14 rounded-lg object-cover" />
@@ -91,6 +102,7 @@ export function PublicHeader() {
           </div>
         </div>
       )}
+      </div>
     </header>
   );
 }
