@@ -71,9 +71,9 @@ const App = () => (
                 <Route path="/activity/:id" element={<ProtectedRoute requiredRole="user"><ActivityStatsPage /></ProtectedRoute>} />
                 <Route path="/statistics" element={<ProtectedRoute requiredRole="user"><StatisticsPage /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute requiredRole="user"><ProfilePage /></ProtectedRoute>} />
-                <Route path="/community" element={<ProtectedRoute requiredRole="user"><CommunityFeedPage /></ProtectedRoute>} />
-                <Route path="/community/:id" element={<ProtectedRoute requiredRole="user"><CommunityPostPage /></ProtectedRoute>} />
-                <Route path="/messages" element={<ProtectedRoute requiredRole="user"><MessagingPage /></ProtectedRoute>} />
+                <Route path="/community" element={<ProtectedRoute><CommunityFeedPage /></ProtectedRoute>} />
+                <Route path="/community/:id" element={<ProtectedRoute><CommunityPostPage /></ProtectedRoute>} />
+                <Route path="/messages" element={<ProtectedRoute><MessagingPage /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute requiredRole="user"><SettingsPage /></ProtectedRoute>} />
                 <Route path="/u/:userId" element={<ProtectedRoute requiredRole="user"><PublicProfilePage /></ProtectedRoute>} />
 
