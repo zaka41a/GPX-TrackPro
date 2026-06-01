@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (h *Handler) messagingListConversations(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +132,10 @@ func (h *Handler) messagingSendMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, msg)
 
 	go func() {
-		recipientID, err := h.store.GetConversationOtherUserID(context.Background(), convoID, user.ID)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		recipientID, err := h.store.GetConversationOtherUserID(ctx, convoID, user.ID)
 		if err != nil {
 			return
 		}
@@ -140,7 +144,7 @@ func (h *Handler) messagingSendMessage(w http.ResponseWriter, r *http.Request) {
 		if len(preview) > 100 {
 			preview = preview[:100] + "…"
 		}
-		_ = h.store.CreateNotification(context.Background(), recipientID,
+		_ = h.store.CreateNotification(ctx, recipientID,
 			"New message from "+senderName,
 			preview,
 		)

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -215,7 +214,7 @@ func (h *Handler) requestSubscriptionUpgrade(w http.ResponseWriter, r *http.Requ
 	title := fmt.Sprintf("Plan upgrade request: %s → %s", fullName, req.PlanName)
 	body := fmt.Sprintf("%s (%s) has requested an upgrade to the %s plan.", fullName, user.Email, req.PlanName)
 	for _, adminID := range adminIDs {
-		_ = h.store.CreateNotification(context.Background(), adminID, title, body)
+		_ = h.store.CreateNotification(r.Context(), adminID, title, body)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "upgrade request sent"})

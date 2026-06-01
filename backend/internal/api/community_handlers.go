@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (h *Handler) communityListPosts(w http.ResponseWriter, r *http.Request) {
@@ -91,8 +93,14 @@ func (h *Handler) communityCreatePost(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, post)
 
 	go func() {
-		ids, err := h.store.ListApprovedUserIDs(context.Background(), user.ID)
+		// Detached from the request context (cancelled once the response is
+		// written) but bounded so a slow DB cannot leave this goroutine hanging.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		ids, err := h.store.ListApprovedUserIDs(ctx, user.ID)
 		if err != nil {
+			slog.Warn("community: failed to list recipients for post notification", "err", err)
 			return
 		}
 		authorName := strings.TrimSpace(user.FirstName + " " + user.LastName)
@@ -100,11 +108,9 @@ func (h *Handler) communityCreatePost(w http.ResponseWriter, r *http.Request) {
 		if len(preview) > 100 {
 			preview = preview[:100] + "…"
 		}
-		for _, id := range ids {
-			_ = h.store.CreateNotification(context.Background(), id,
-				authorName+" posted in Community",
-				preview,
-			)
+		// Single bulk insert instead of one round-trip per recipient.
+		if err := h.store.CreateNotificationsBulk(ctx, ids, authorName+" posted in Community", preview); err != nil {
+			slog.Warn("community: failed to fan out post notifications", "recipients", len(ids), "err", err)
 		}
 	}()
 }

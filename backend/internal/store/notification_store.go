@@ -22,6 +22,21 @@ func (s *Store) CreateNotification(ctx context.Context, userID int64, title, bod
 	return err
 }
 
+// CreateNotificationsBulk inserts the same notification for many users in a
+// single statement, avoiding a per-user round-trip when fanning out (e.g. a
+// new community post). No-op when userIDs is empty.
+func (s *Store) CreateNotificationsBulk(ctx context.Context, userIDs []int64, title, body string) error {
+	if len(userIDs) == 0 {
+		return nil
+	}
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO notifications (user_id, title, body)
+		 SELECT uid, $2, $3 FROM unnest($1::bigint[]) AS uid`,
+		userIDs, title, body,
+	)
+	return err
+}
+
 func (s *Store) ListNotifications(ctx context.Context, userID int64, limit int) ([]Notification, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 20

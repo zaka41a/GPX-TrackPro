@@ -127,6 +127,23 @@ func (h *Handler) stripeWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Idempotency: skip events we've already processed (Stripe may retry the
+	// same delivery). Done after signature verification so unverified payloads
+	// never poison the dedup table.
+	if event.ID != "" {
+		claimed, err := h.store.TryClaimStripeEvent(r.Context(), event.ID, string(event.Type))
+		if err != nil {
+			slog.Error("stripe: idempotency check failed", "eventID", event.ID, "err", err)
+			writeErr(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if !claimed {
+			slog.Info("stripe: duplicate event ignored", "eventID", event.ID, "type", event.Type)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+
 	switch event.Type {
 	case "checkout.session.completed":
 		var cs stripe.CheckoutSession
@@ -135,6 +152,22 @@ func (h *Handler) stripeWebhook(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		h.handleCheckoutCompleted(r, &cs)
+
+	case "invoice.payment_succeeded":
+		var inv stripe.Invoice
+		if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
+			slog.Error("stripe: failed to parse invoice.payment_succeeded", "err", err)
+			break
+		}
+		h.handleInvoicePaid(r, &inv)
+
+	case "invoice.payment_failed":
+		var inv stripe.Invoice
+		if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
+			slog.Error("stripe: failed to parse invoice.payment_failed", "err", err)
+			break
+		}
+		h.handleInvoiceFailed(r, &inv)
 
 	case "customer.subscription.deleted":
 		var sub stripe.Subscription
@@ -146,6 +179,45 @@ func (h *Handler) stripeWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// handleInvoicePaid extends the subscription period on a successful recurring
+// payment. The very first invoice also fires here, which simply re-confirms the
+// active state set by checkout.session.completed (harmless).
+func (h *Handler) handleInvoicePaid(r *http.Request, inv *stripe.Invoice) {
+	if inv.Customer == nil {
+		return
+	}
+	userID, err := h.store.GetUserIDByStripeCustomer(r.Context(), inv.Customer.ID)
+	if err != nil {
+		slog.Warn("stripe: invoice.payment_succeeded — no user for customer", "customerID", inv.Customer.ID)
+		return
+	}
+	end := time.Now().AddDate(0, 1, 0)
+	if err := h.store.RenewSubscription(r.Context(), userID, end, "renewal:"+inv.ID); err != nil {
+		slog.Error("stripe: failed to renew subscription", "userID", userID, "err", err)
+		return
+	}
+	slog.Info("stripe: subscription renewed", "userID", userID)
+}
+
+// handleInvoiceFailed notifies the user when a recurring payment fails. Stripe
+// retries on its own dunning schedule before eventually cancelling, which is
+// handled by customer.subscription.deleted.
+func (h *Handler) handleInvoiceFailed(r *http.Request, inv *stripe.Invoice) {
+	if inv.Customer == nil {
+		return
+	}
+	userID, err := h.store.GetUserIDByStripeCustomer(r.Context(), inv.Customer.ID)
+	if err != nil {
+		slog.Warn("stripe: invoice.payment_failed — no user for customer", "customerID", inv.Customer.ID)
+		return
+	}
+	_ = h.store.CreateNotification(r.Context(), userID,
+		"Payment failed",
+		"Your subscription payment could not be processed. Please update your payment method to keep your access.",
+	)
+	slog.Info("stripe: payment failed notification sent", "userID", userID)
 }
 
 func (h *Handler) handleCheckoutCompleted(r *http.Request, cs *stripe.CheckoutSession) {

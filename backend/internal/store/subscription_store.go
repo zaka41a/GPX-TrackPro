@@ -89,6 +89,33 @@ func (s *Store) UpsertSubscription(ctx context.Context, userID int64, status str
 	return err
 }
 
+// RenewSubscription extends an existing subscription's period end (and marks it
+// active) without touching period_start — used for recurring Stripe renewals.
+func (s *Store) RenewSubscription(ctx context.Context, userID int64, periodEnd time.Time, notes string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE subscriptions
+		 SET status = 'active', period_end = $2, notes = $3, updated_at = NOW()
+		 WHERE user_id = $1`,
+		userID, periodEnd, notes,
+	)
+	return err
+}
+
+// TryClaimStripeEvent atomically records a Stripe webhook event id and returns
+// true only the first time a given id is seen. Used for webhook idempotency so
+// retried/duplicate deliveries are skipped.
+func (s *Store) TryClaimStripeEvent(ctx context.Context, eventID, eventType string) (bool, error) {
+	tag, err := s.pool.Exec(ctx,
+		`INSERT INTO processed_stripe_events (event_id, type) VALUES ($1, $2)
+		 ON CONFLICT (event_id) DO NOTHING`,
+		eventID, eventType,
+	)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 func (s *Store) UpdateSubscriptionPlan(ctx context.Context, userID int64, planName string) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE subscriptions SET plan_name = $1, updated_at = NOW() WHERE user_id = $2`,
