@@ -2,3 +2,9 @@
 .env
 .env.local
 .env.production
+
+# Compiled Go backend binary (rebuilt by dev.sh / Docker)
+backend/server
+
+# IDE
+.idea/

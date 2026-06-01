@@ -103,6 +103,15 @@ func (h *Handler) stripeWebhook(w http.ResponseWriter, r *http.Request) {
 	webhookSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	sig := r.Header.Get("Stripe-Signature")
 
+	// In production the signature MUST be verified, otherwise anyone could
+	// forge a webhook and activate a paid subscription for free. We only allow
+	// the unverified JSON fallback in development (e.g. local manual testing).
+	if os.Getenv("GO_ENV") == "production" && (webhookSecret == "" || sig == "") {
+		slog.Error("stripe webhook rejected: STRIPE_WEBHOOK_SECRET or signature missing in production")
+		writeErr(w, http.StatusServiceUnavailable, "webhook not configured")
+		return
+	}
+
 	var event stripe.Event
 	if webhookSecret != "" && sig != "" {
 		event, err = webhook.ConstructEvent(body, sig, webhookSecret)

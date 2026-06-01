@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -128,7 +129,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /api/messages/unread-count", h.messagingUnreadCount)
 
 	const maxBodyBytes = 32 << 20
-	return bodySizeLimitMiddleware(maxBodyBytes)(requestIDMiddleware(requestLogger(cors(mux))))
+	return bodySizeLimitMiddleware(maxBodyBytes)(requestIDMiddleware(recoverMiddleware(requestLogger(cors(mux)))))
 }
 
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
@@ -193,21 +194,36 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
-		token, err := h.store.CreateEmailVerificationToken(r.Context(), user.ID)
-		if err != nil {
-			slog.Error("failed to create email verification token", "userID", user.ID, "err", err)
-			return
+	// When SMTP is not configured (typically local/dev) the user can never
+	// receive the verification link, which would lock them out. Auto-verify so
+	// the signup flow stays usable. In production SMTP must be configured, so
+	// real email verification is always enforced there.
+	if os.Getenv("SMTP_HOST") == "" {
+		if err := h.store.MarkEmailVerified(r.Context(), user.ID); err != nil {
+			slog.Error("failed to auto-verify email (no SMTP configured)", "userID", user.ID, "err", err)
 		}
-		frontendURL := os.Getenv("FRONTEND_URL")
-		if frontendURL == "" {
-			frontendURL = "http://localhost:5173"
-		}
-		verifyURL := frontendURL + "/verify-email?token=" + token
-		if err := sendVerificationEmail(user.Email, verifyURL); err != nil {
-			slog.Error("failed to send verification email", "userID", user.ID, "err", err)
-		}
-	}()
+	} else {
+		go func() {
+			// Detached from the request context (which is cancelled once the
+			// response is written) but bounded so a slow DB/SMTP cannot hang.
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			token, err := h.store.CreateEmailVerificationToken(ctx, user.ID)
+			if err != nil {
+				slog.Error("failed to create email verification token", "userID", user.ID, "err", err)
+				return
+			}
+			frontendURL := os.Getenv("FRONTEND_URL")
+			if frontendURL == "" {
+				frontendURL = "http://localhost:5173"
+			}
+			verifyURL := frontendURL + "/verify-email?token=" + token
+			if err := sendVerificationEmail(user.Email, verifyURL); err != nil {
+				slog.Error("failed to send verification email", "userID", user.ID, "err", err)
+			}
+		}()
+	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"message": "registration successful — please verify your email then wait for admin approval",

@@ -69,6 +69,15 @@ func (s *Store) VerifyEmailToken(ctx context.Context, token string) (int64, erro
 	return userID, tx.Commit(ctx)
 }
 
+// MarkEmailVerified flags a user's email as verified without a token. Used when
+// SMTP is not configured (development) so the signup flow is not blocked.
+func (s *Store) MarkEmailVerified(ctx context.Context, userID int64) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE users SET email_verified = TRUE WHERE id = $1`, userID,
+	)
+	return err
+}
+
 func (s *Store) IsEmailVerified(ctx context.Context, userID int64) (bool, error) {
 	var verified bool
 	err := s.pool.QueryRow(ctx,

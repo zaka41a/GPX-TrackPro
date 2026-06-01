@@ -29,6 +29,13 @@ func main() {
 		_ = os.Setenv("JWT_SECRET", "dev-only-change-me")
 	}
 
+	// FRONTEND_URL is used to build email links and OAuth/Stripe redirects.
+	// If it falls back to localhost in production those links break (or could
+	// redirect users somewhere unexpected), so require it explicitly.
+	if goEnv == "production" && os.Getenv("FRONTEND_URL") == "" {
+		log.Fatal("FRONTEND_URL must be set in production")
+	}
+
 	ctx := context.Background()
 	var db *store.Store
 	var err error
