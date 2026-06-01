@@ -23,11 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     authService
       .getMe()
-      .then((u) => {
+      .then(async (u) => {
         if (u) {
           setUser(u);
           // Sync localStorage avatar to backend if backend has none
-          const localProfile = profileService.getProfile();
+          const localProfile = await profileService.getProfile();
           if (localProfile.avatarUrl && !u.avatarUrl) {
             apiFetch("/api/users/avatar", {
               method: "PUT",

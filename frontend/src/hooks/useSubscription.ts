@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { subscriptionService, SubscriptionAction, PlanName } from "@/services/subscriptionService";
+import { subscriptionService, Subscription, SubscriptionAction, PlanName } from "@/services/subscriptionService";
 
 export function useMySubscription() {
   return useQuery<Subscription | null>({

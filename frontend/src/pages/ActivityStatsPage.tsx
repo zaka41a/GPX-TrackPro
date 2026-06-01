@@ -155,11 +155,11 @@ function HRZonesSection({ zones }: { zones: HRZone[] }) {
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
-              formatter={(_: number, __: string, entry: { payload: { time: string; range: string } }) => [
-                `${entry.payload.time} · ${entry.payload.range}`,
-                "Time",
-              ]}
-              labelFormatter={(label: string) => label}
+              formatter={(_value, _name, item) => {
+                const p = (item?.payload ?? {}) as { time?: string; range?: string };
+                return [`${p.time ?? ""} · ${p.range ?? ""}`, "Time"];
+              }}
+              labelFormatter={(label) => String(label)}
             />
             <Bar dataKey="pct" radius={[0, 4, 4, 0]} maxBarSize={24}>
               {data.map((entry, i) => (

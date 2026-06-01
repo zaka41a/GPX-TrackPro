@@ -232,7 +232,11 @@ export default function SettingsPage() {
 
   const onChangeEmail = async (data: ChangeEmailFormData) => {
     try {
-      await changeEmail.mutateAsync(data);
+      // Fields are guaranteed present by the zod resolver before submit.
+      await changeEmail.mutateAsync({
+        newEmail: data.newEmail,
+        currentPassword: data.currentPassword,
+      });
       toast.success("Email updated successfully");
       emailForm.reset();
     } catch (e) {
